@@ -32,9 +32,13 @@ npm start
 ```
 
 The launch screen says **“I don't want to work”** — click **Yes** and the pack
-starts eating. Dogs roam and hunt on their own; **click a dog in the left roster,
-then click a tab/app** to send it. **🦴 Treat** (or Space) distracts the nearest
-dog; **Call off** pauses the pack.
+starts eating. Dogs roam and hunt on their own.
+
+- **Click a dog's roster card** to bench it (take it off the field) or field it again.
+- **Click a tab/app** to sic the nearest free dog on it.
+- **🦴 Treat** (or Space) throws a bone that distracts the nearest dog.
+- **🌐 Tabs only** makes the pack ignore executables and eat only browser tabs.
+- **Call off** pauses the pack; the **mode pill** flips Safe ↔ Chaos.
 
 ## Safe Mode vs. Chaos Mode
 

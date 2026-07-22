@@ -3,7 +3,7 @@
  * a random winner. Winner eats; loser's reaction is handed back to game.js.
  * Lupita goes Super Saiyan for the duration of any fight she's in. */
 
-const FIGHT_MS = 3000;
+const FIGHT_MS = 4000; // a slightly longer, less frantic brawl
 const SPARKS = ['💥', '⭐', '💫', '💢', '🐾'];
 
 function makeBrawl(arena, x, y) {
@@ -11,7 +11,7 @@ function makeBrawl(arena, x, y) {
   b.className = 'brawl';
   b.style.left = x + 'px';
   b.style.top = y + 'px';
-  b.innerHTML = `<div class="clock">3</div><div class="cloud">💨</div>`;
+  b.innerHTML = `<div class="clock">4</div><div class="cloud">💨</div>`;
   arena.appendChild(b);
   return b;
 }
@@ -56,7 +56,7 @@ function runBrawl(dogA, dogB, target, ctx) {
   const brawl = makeBrawl(ctx.arena, mx, my);
   const clock = brawl.querySelector('.clock');
 
-  let remaining = 3;
+  let remaining = 4;
   const tick = setInterval(() => {
     remaining -= 1;
     if (remaining >= 1) clock.textContent = String(remaining);

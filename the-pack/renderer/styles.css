@@ -45,6 +45,7 @@ html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(-
 #modePill .dot{width:9px;height:9px;border-radius:50%}
 #modePill.safe .dot{background:var(--ok)}
 #modePill.chaos .dot{background:var(--danger)}
+#btnTabsOnly.on{background:rgba(79,179,217,.28);border-color:rgba(79,179,217,.6);color:#dff4ff}
 
 /* ─────────────────────── dog roster (left) ─────────────────────── */
 #roster{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:78;
@@ -54,6 +55,8 @@ html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(-
   padding:7px 9px;color:#fff;cursor:pointer;transition:transform .08s,border-color .1s,background .1s}
 .roster-card:hover{transform:translateX(3px);background:rgba(20,24,18,.72)}
 .roster-card.selected{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,207,51,.35)}
+.roster-card.benched{opacity:.45;filter:grayscale(.7)}
+.roster-card.benched .chip{filter:grayscale(1)}
 .roster-card .chip{width:38px;height:38px;flex:0 0 38px;border-radius:10px;overflow:hidden;
   background:linear-gradient(180deg,#7cb342,#4e8228);display:grid;place-items:center}
 .roster-card .chip svg{width:150%;height:150%;transform:translateY(6%)}
@@ -102,14 +105,18 @@ html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(-
 @keyframes wag{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(13deg)}}
 @keyframes eartwitch{0%,86%,100%{transform:rotate(0)}90%{transform:rotate(-9deg)}94%{transform:rotate(5deg)}}
 
-/* walking: quicker bob + happy tail */
-.dog.walking .dog-svg .rig{animation-duration:.5s}
-.dog.walking .dog-svg .tail{animation-duration:.4s}
+/* walking: gentle bob + happy tail (relaxed pace) */
+.dog.walking .dog-svg .rig{animation-duration:.72s}
+.dog.walking .dog-svg .tail{animation-duration:.56s}
 
-/* chewing: head lunges, fast tail */
-.dog.chomp .dog-svg .head{animation:chomp .26s infinite;transform-box:fill-box;transform-origin:center bottom}
-.dog.chomp .dog-svg .tail{animation-duration:.28s}
+/* chewing: head lunges (slower, more deliberate) */
+.dog.chomp .dog-svg .head{animation:chomp .4s infinite;transform-box:fill-box;transform-origin:center bottom}
+.dog.chomp .dog-svg .tail{animation-duration:.42s}
 @keyframes chomp{0%,100%{transform:translateX(0) scaleY(1)}50%{transform:translateX(4px) scaleY(.9)}}
+
+/* Lupita training: heavy, laboured breathing */
+.dog.training .dog-svg .rig{animation:heavybreath .55s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+@keyframes heavybreath{0%,100%{transform:translateY(0) scale(1,1)}45%{transform:translateY(-2px) scale(1.06,1.08)}}
 
 /* nameplate */
 .dog .nameplate{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);
@@ -171,17 +178,17 @@ html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(-
 .dog.saiyan .saiyan-hair{opacity:1;animation:hairflicker .12s steps(2) infinite}
 @keyframes hairflicker{50%{transform:translateX(-50%) scaleY(1.08)}}
 
-/* fighting: dog shakes inside the brawl */
-.dog.fighting .dog-svg{animation:brawlshake .1s infinite}
+/* fighting: dog shakes inside the brawl (a touch calmer) */
+.dog.fighting .dog-svg{animation:brawlshake .16s infinite}
 @keyframes brawlshake{0%{transform:translate(-2px,1px) rotate(-3deg)}50%{transform:translate(3px,-1px) rotate(3deg)}}
 
 /* ─────────────────────── brawl cloud ─────────────────────── */
 .brawl{position:absolute;z-index:55;width:150px;height:150px;transform:translate(-50%,-50%);pointer-events:none}
 .brawl .cloud{position:absolute;inset:0;display:grid;place-items:center;font-size:96px;
-  animation:cloudspin .5s linear infinite,cloudpuff .4s ease-in-out infinite}
+  animation:cloudspin .8s linear infinite,cloudpuff .6s ease-in-out infinite}
 @keyframes cloudspin{to{transform:rotate(360deg)}}
 @keyframes cloudpuff{50%{transform:scale(1.1)}}
-.brawl .spark{position:absolute;font-size:26px;animation:sparkfly .6s ease-out infinite}
+.brawl .spark{position:absolute;font-size:26px;animation:sparkfly .8s ease-out infinite}
 @keyframes sparkfly{0%{transform:translate(0,0) scale(.5);opacity:1}100%{transform:translate(var(--sx),var(--sy)) scale(1.1);opacity:0}}
 .brawl .clock{position:absolute;left:50%;top:-30px;transform:translateX(-50%);
   font-family:var(--mono);font-weight:800;font-size:22px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5);

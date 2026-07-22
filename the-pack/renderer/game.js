@@ -1,5 +1,5 @@
 'use strict';
-/* The Pack — game orchestration.
+/* who ate the tab? — game orchestration.
  * Scans the real desktop for tabs/apps, renders them as chewable windows,
  * runs five autonomous dogs that hunt + contest + fight over them, routes
  * losers to their personality reactions, and gates every real "eat" through
@@ -32,12 +32,13 @@ let dogs = [];
 let targets = [];
 let running = false, paused = false;
 let mode = 'safe';
+let tabsOnly = false;      // when true, the pack ignores executables
 let eaten = 0;
-let selectedDog = null;
 let bones = [];
 let scanTimer = null;
 const respawnBlock = new Map(); // targetId -> time until it may reappear
 let warnedPerm = false;
+let reactSpots = [];       // spread-out corner spots so reacting dogs don't overlap
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const now = () => performance.now();
@@ -57,11 +58,15 @@ const Sfx = {
     } catch (_) {}
   },
   sad() { [392, 349, 294, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'sine', 0.05), i * 180)); },
+  // No one's louder wail — a bigger, more nasal descending cry.
+  wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
   hit() { this.blip(90 + Math.random() * 60, 0.09, 'square', 0.05); },
   power() { [220, 330, 440, 660].forEach((f, i) => setTimeout(() => this.blip(f, 0.25, 'sawtooth', 0.04), i * 90)); },
   gulp() { this.blip(180, 0.12, 'triangle', 0.06); setTimeout(() => this.blip(120, 0.14, 'triangle', 0.05), 90); },
   // One shared "woof" for every dog — a quick two-tone yip.
-  bark() { this.blip(300, 0.07, 'square', 0.05); setTimeout(() => this.blip(190, 0.1, 'square', 0.045), 65); }
+  bark() { this.blip(300, 0.07, 'square', 0.05); setTimeout(() => this.blip(190, 0.1, 'square', 0.045), 65); },
+  // Lupita's laboured training breath — a low huff.
+  breath() { this.blip(150, 0.2, 'sine', 0.05); }
 };
 
 /* ───────── toast log ───────── */
@@ -82,7 +87,8 @@ const hud = {
   pill: document.getElementById('modePill'),
   pause: document.getElementById('btnPause'),
   treat: document.getElementById('btnTreat'),
-  sound: document.getElementById('btnSound')
+  sound: document.getElementById('btnSound'),
+  tabsOnly: document.getElementById('btnTabsOnly')
 };
 function refreshMode() {
   hud.pill.className = mode;
@@ -90,7 +96,7 @@ function refreshMode() {
 }
 function refreshHud() {
   hud.eaten.textContent = eaten;
-  hud.pack.textContent = dogs.filter((d) => !['react', 'toCorner'].includes(d.state)).length;
+  hud.pack.textContent = dogs.filter((d) => d.active && !['react', 'toCorner'].includes(d.state)).length;
 }
 
 /* ───────── target windows ───────── */
@@ -162,7 +168,7 @@ function reconcile(scanned) {
   // Choose which to show: drop respawn-blocked, keep a tabs+apps mix, cap to grid.
   const fresh = scanned.filter((s) => !(respawnBlock.get(s.id) > t));
   const tabs = fresh.filter((s) => s.kind === 'tab');
-  const apps = fresh.filter((s) => s.kind === 'app');
+  const apps = tabsOnly ? [] : fresh.filter((s) => s.kind === 'app');
   const pick = [];
   let ti = 0, ai = 0;
   while (pick.length < maxSlots && (ti < tabs.length || ai < apps.length)) {
@@ -211,7 +217,7 @@ function biteHole(t, dog) {
 }
 
 function damageTarget(t, dog) {
-  t.hp -= rnd(8, 13);
+  t.hp -= rnd(5, 9); // smaller bites → slower eating
   biteHole(t, dog);
   const p = Math.max(0, t.hp);
   const ratio = p / t.maxHp;
@@ -264,25 +270,37 @@ function resolveFight(winner, loser, target) {
   if (target && !target.dead) { target.claimedBy = winner.key; winner.lock = target; winner.state = 'hunt'; }
   else winner.state = 'roam';
   winner.say('mine 😋');
-  // Loser slinks off to the nearest corner; it reacts there (see startReaction).
+  // Loser slinks off to its own free corner spot and reacts there (startReaction).
   loser.lock = null; loser.priority = false; loser.opponent = winner;
   loser.clearProps(); loser.hideBadge();
-  loser.cornerSpot = nearestCorner(loser);
+  loser.spot = claimSpot(loser);
   loser.state = 'toCorner';
 }
 
 const REACT_MS = 10000;
-function nearestCorner(dog) {
+// Spread-out spots around the edges so reacting dogs never pile on each other.
+function buildReactSpots() {
+  const y2 = innerHeight - 120, y1 = TOP + 90;
+  const leftX = START_X + 70, rightX = innerWidth - 110, span = Math.max(1, rightX - leftX);
+  reactSpots = [
+    { x: leftX, y: y2 }, { x: leftX + span / 3, y: y2 },
+    { x: leftX + 2 * span / 3, y: y2 }, { x: rightX, y: y2 },
+    { x: leftX, y: y1 }, { x: rightX, y: y1 }
+  ].map((p) => ({ ...p, by: null }));
+}
+function claimSpot(dog) {
   const c = dog.center();
-  const pts = [
-    { x: START_X + 60, y: TOP + 70 },
-    { x: innerWidth - 90, y: TOP + 70 },
-    { x: START_X + 60, y: innerHeight - 110 },
-    { x: innerWidth - 90, y: innerHeight - 110 }
-  ];
-  let best = pts[0], bd = Infinity;
-  for (const p of pts) { const d = Math.hypot(p.x - c.x, p.y - c.y); if (d < bd) { bd = d; best = p; } }
-  return best;
+  let best = null, bd = Infinity;
+  for (const s of reactSpots) {
+    if (s.by && s.by !== dog.key) continue;
+    const d = Math.hypot(s.x - c.x, s.y - c.y);
+    if (d < bd) { bd = d; best = s; }
+  }
+  if (!best) best = reactSpots[0];
+  best.by = dog.key; return best;
+}
+function releaseSpot(dog) {
+  if (dog.spot) { if (dog.spot.by === dog.key) dog.spot.by = null; dog.spot = null; }
 }
 
 /* ───────── personalities (loser reactions, played at the corner for 10s) ───────── */
@@ -303,12 +321,12 @@ function startReaction(dog) {
       dog.reaction = { then: null };
       dog.showBadge('🤷'); dog.addProp('shrug', '🤷'); dog.say('eh, whatever.', 2600);
       break;
-    case 'fanta': // "No one"
-      dog.reaction = { particle: '💧', then: 'revenge' };
-      dog.showBadge('😾'); dog.say('grrr… coming back 😾', 2600);
+    case 'fanta': // "No one" — cries LOUD
+      dog.reaction = { particle: '💧', then: 'revenge', loud: true };
+      dog.showBadge('😭'); dog.say('WAAAAH!! 😭', 2600); Sfx.wail(); dog._nextWail = now() + 1400;
       break;
-    case 'lupita':
-      dog.reaction = { particle: '💦', then: 'revenge' };
+    case 'lupita': // trains hard, heavy breathing
+      dog.reaction = { particle: '💦', then: 'revenge', training: true };
       dog.showBadge('💪'); dog.addProp('dumbbell', '🏋️'); dog.say('must. get. stronger.', 2600);
       break;
     default:
@@ -330,18 +348,16 @@ function pickTarget(dog) {
   return best;
 }
 function stepDog(dog, T, dt) {
+  if (!dog.active) return; // benched from the field via its roster card
   switch (dog.state) {
     case 'roam': {
-      // treat chase
-      if (dog.treat) {
-        const b = dog.treat;
-        if (b.dead) { dog.treat = null; }
-        else {
-          const d = dog.moveToward(b.x + 16, b.y + 16, 220, dt);
-          dog.setMotion({ walking: true });
-          if (d < 40) { eatBone(b); dog.treat = null; dog.distractedUntil = T + 2600; dog.say('❤️ treat!'); }
-          return;
-        }
+      // a thrown treat beats everything — chase the nearest bone
+      const bone = nearestBone(dog);
+      if (bone) {
+        const d = dog.moveToward(bone.x + 16, bone.y + 16, 150, dt);
+        dog.setMotion({ walking: true });
+        if (d < 44) { eatBone(bone); dog.distractedUntil = T + 2600; dog.say('❤️ treat!'); Sfx.gulp(); }
+        return;
       }
       if (T < dog.distractedUntil) { wander(dog, T, dt); return; }
       if (!paused) {
@@ -356,7 +372,7 @@ function stepDog(dog, T, dt) {
       if (!t || t.dead || t.protected || paused) { dog.lock = null; dog.state = 'roam'; return; }
       if (t.claimedBy === 'fight') { dog.lock = null; dog.state = 'roam'; return; }
       const tc = targetCenter(t);
-      const dist = dog.moveToward(tc.x, tc.y, dog.priority ? 240 : 175, dt);
+      const dist = dog.moveToward(tc.x, tc.y, dog.priority ? 165 : 120, dt);
       dog.setMotion({ walking: true });
       if (dist < Math.max(t.w, t.h) / 2 + 8) {
         // Someone already on this target? Contest it.
@@ -372,35 +388,45 @@ function stepDog(dog, T, dt) {
       const t = dog.lock;
       if (!t || t.dead || paused) { if (t) t.claimedBy = null; dog.lock = null; dog.state = 'roam'; return; }
       dog.setMotion({ chomp: true });
-      if (T - dog.chompAt > 300) {
+      if (T - dog.chompAt > 520) { // slower, more deliberate chewing
         dog.chompAt = T;
         damageTarget(t, dog);
-        if (Math.random() < 0.25) { dog.say(bark()); Sfx.bark(); }
+        if (Math.random() < 0.3) { dog.say(bark()); Sfx.bark(); }
       }
       break;
     }
     case 'fight': return; // fight.js owns this
     case 'toCorner': {
-      const cs = dog.cornerSpot;
-      const d = dog.moveToward(cs.x, cs.y, 205, dt);
+      const cs = dog.spot;
+      if (!cs) { startReaction(dog); return; }
+      const d = dog.moveToward(cs.x, cs.y, 135, dt);
       dog.setMotion({ walking: d > 6 });
-      if (d < 20) startReaction(dog);
+      if (d < 18) startReaction(dog);
       break;
     }
     case 'react': {
       dog.setMotion({});
       const r = dog.reaction || {};
+      if (r.training) dog.el.classList.add('training');
       if (r.particle && T > dog._nextParticle) {
         if (r.particle === '💦') {
           const s = dog.addProp('sweat', '💦', { left: (36 + rnd(0, 48)) + 'px', top: '40px' });
           setTimeout(() => s.remove(), 700);
-        } else dog.tear();
+          if (r.training) { // heavy breathing puffs + huff
+            const p = dog.addProp('sweat', '💨', { left: (28 + rnd(0, 64)) + 'px', top: '16px' });
+            setTimeout(() => p.remove(), 700); Sfx.breath();
+          }
+        } else {
+          dog.tear();
+          if (r.loud) dog.tear(); // extra tears for a louder cry
+        }
         if (r.notes) { dog.note(); Sfx.blip(rnd(300, 500), 0.3, 'sine', 0.03); }
-        dog._nextParticle = T + 400;
+        dog._nextParticle = T + (r.loud ? 230 : 400);
       }
+      if (r.loud && T > (dog._nextWail || 0)) { Sfx.wail(); dog._nextWail = T + 1500; }
       if (T > dog.until) {
-        dog.clearProps(); dog.hideBadge();
-        if (r.then === 'revenge' && dog.opponent) {
+        dog.clearProps(); dog.hideBadge(); dog.el.classList.remove('training'); releaseSpot(dog);
+        if (r.then === 'revenge' && dog.opponent && dog.opponent.active) {
           dog.state = 'revenge'; dog.revengeUntil = T + 9000;
           dog.say(dog.key === 'lupita' ? 'REVENGE. 🔥' : 'AGAIN! 😾');
           if (dog.key === 'lupita') Sfx.power();
@@ -410,9 +436,9 @@ function stepDog(dog, T, dt) {
     }
     case 'revenge': {
       const opp = dog.opponent;
-      if (!opp || T > dog.revengeUntil) { dog.reset(); return; }
+      if (!opp || !opp.active || T > dog.revengeUntil) { dog.reset(); return; }
       const oc = opp.center();
-      const d = dog.moveToward(oc.x, oc.y, 215, dt);
+      const d = dog.moveToward(oc.x, oc.y, 140, dt);
       dog.setMotion({ walking: true });
       if (d < 74) {
         if (opp.state === 'fight') return; // wait for them to be free
@@ -428,7 +454,7 @@ function wander(dog, T, dt) {
     dog._wp = { x: rnd(START_X, innerWidth - 80), y: rnd(TOP + 20, innerHeight - 120) };
     dog.wanderAt = T + rnd(1600, 3400);
   }
-  const d = dog.moveToward(dog._wp.x, dog._wp.y, 95, dt);
+  const d = dog.moveToward(dog._wp.x, dog._wp.y, 62, dt);
   dog.setMotion({ walking: d > 6 });
 }
 
@@ -438,6 +464,16 @@ function bark() {
 }
 
 /* ───────── treats ───────── */
+function nearestBone(dog) {
+  let best = null, bd = Infinity;
+  const c = dog.center();
+  for (const b of bones) {
+    if (b.dead) continue;
+    const d = Math.hypot(b.x + 16 - c.x, b.y + 16 - c.y);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
 function throwTreat() {
   if (!running || paused) return;
   const bx = rnd(START_X, innerWidth - 80), by = rnd(TOP + 20, innerHeight - 100);
@@ -445,35 +481,37 @@ function throwTreat() {
   el.className = 'bone'; el.textContent = '🦴';
   el.style.left = (bx - 16) + 'px'; el.style.top = (by - 16) + 'px';
   arena.appendChild(el);
-  const b = { el, x: bx - 16, y: by - 16, dead: false };
-  bones.push(b);
-  // nearest interruptible dog goes for it
+  bones.push({ el, x: bx - 16, y: by - 16, dead: false });
+  Sfx.blip(660, 0.12, 'triangle', 0.05);
+  // Any roaming dog will now chase the nearest bone. Nudge the closest
+  // hunting/chewing dog off its target so a treat reliably distracts someone.
   let best = null, bd = Infinity;
   for (const d of dogs) {
-    if (!['roam', 'hunt', 'chew'].includes(d.state)) continue;
+    if (!d.active || !['hunt', 'chew'].includes(d.state)) continue;
     const c = d.center(); const dist = Math.hypot(c.x - bx, c.y - by);
     if (dist < bd) { bd = dist; best = d; }
   }
-  if (best) {
-    if (best.lock) { best.lock.claimedBy = null; best.lock = null; }
-    best.state = 'roam'; best.treat = b; best.say('BONE!');
-  }
+  if (best) { if (best.lock) best.lock.claimedBy = null; best.lock = null; best.state = 'roam'; best.say('BONE!'); }
 }
 function eatBone(b) { b.dead = true; b.el.remove(); bones = bones.filter((x) => x !== b); }
 
-/* ───────── user assignment (Mix targeting) ───────── */
+/* ───────── click a target → send the nearest free dog ───────── */
 function onTargetClick(t) {
   if (!running || t.dead || t.protected) return;
-  if (!selectedDog) { toast('Pick a dog on the left first, then a target.'); return; }
-  const d = selectedDog;
-  if (d.lock) { if (d.lock !== t) d.lock.claimedBy = null; }
-  d.state = 'hunt'; d.lock = t; d.priority = true; d.treat = null;
-  d.say('on it! 🎯');
-  toast(`Sent ${d.name} after ${short(t.title)}`);
-  selectDog(null);
+  const tc = targetCenter(t);
+  let best = null, bd = Infinity;
+  for (const d of dogs) {
+    if (!d.active || !['roam', 'hunt', 'chew'].includes(d.state)) continue;
+    const c = d.center(); const dist = Math.hypot(c.x - tc.x, c.y - tc.y);
+    if (dist < bd) { bd = dist; best = d; }
+  }
+  if (!best) { toast('No free dog to send right now.'); return; }
+  if (best.lock && best.lock !== t) best.lock.claimedBy = null;
+  best.state = 'hunt'; best.lock = t; best.priority = true;
+  best.say('on it! 🎯'); toast(`${best.name} → ${short(t.title)}`);
 }
 
-/* ───────── roster ───────── */
+/* ───────── roster (click a card to bench / field a dog) ───────── */
 const STATE_ICON = { roam: '🐾', hunt: '👀', chew: '😋', fight: '🥊', toCorner: '🏃', react: '😢', revenge: '🔥' };
 function buildRoster() {
   const box = document.getElementById('roster');
@@ -485,22 +523,34 @@ function buildRoster() {
       `<div class="chip">${window.Sprites.buildDogSVG(d.key)}</div>` +
       `<div class="who"><b>${d.name}</b><span>${d.breed}</span><span class="pron">${d.pronouns}</span></div>` +
       `<div class="state">🐾</div>`;
-    card.addEventListener('click', () => selectDog(selectedDog === d ? null : d));
+    card.addEventListener('click', () => toggleDog(d));
     d.card = card; d.stateEl = card.querySelector('.state');
     box.appendChild(card);
   }
   const hint = document.createElement('div');
   hint.id = 'rosterHint';
-  hint.textContent = 'Click a dog, then click a tab/app to send it.';
+  hint.textContent = 'Click a card to bench / field a dog. Click a tab/app to sic the nearest dog on it.';
   box.appendChild(hint);
 }
-function selectDog(d) {
-  selectedDog = d;
-  for (const x of dogs) x.card.classList.toggle('selected', x === d);
-  for (const t of targets) if (!t.protected) t.el.classList.toggle('assignable', true);
+function toggleDog(d) {
+  d.active = !d.active;
+  d.card.classList.toggle('benched', !d.active);
+  if (!d.active) {
+    if (d.lock) d.lock.claimedBy = null;
+    releaseSpot(d);
+    d.el.style.display = 'none';
+    d.reset();
+    toast(`${d.name} benched.`);
+  } else {
+    d.el.style.display = '';
+    // drop back in at a fresh spot so it doesn't reappear mid-fight
+    d.x = rnd(START_X, innerWidth - 200); d.y = rnd(TOP + 20, innerHeight - 200);
+    d.place(); d.reset();
+    toast(`${d.name} is back on the field!`);
+  }
 }
 function refreshRoster() {
-  for (const d of dogs) if (d.stateEl) d.stateEl.textContent = STATE_ICON[d.state] || '🐾';
+  for (const d of dogs) if (d.stateEl) d.stateEl.textContent = d.active ? (STATE_ICON[d.state] || '🐾') : '💤';
 }
 
 /* ───────── ambient dolphin ───────── */
@@ -565,6 +615,7 @@ function startGame() {
   document.getElementById('intro').hidden = true;
   Sfx.ensure();
   computeGrid();
+  buildReactSpots();
   dogs = window.Sprites.BREEDS.map((def) => new window.Dog(def, arena));
   buildRoster();
   running = true; paused = false;
@@ -626,8 +677,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     Sfx.on = !Sfx.on;
     hud.sound.textContent = Sfx.on ? '🔊' : '🔇';
   });
+  hud.tabsOnly.addEventListener('click', () => {
+    tabsOnly = !tabsOnly;
+    hud.tabsOnly.classList.toggle('on', tabsOnly);
+    hud.tabsOnly.textContent = tabsOnly ? '🌐 Tabs only' : '🌐🖥️ Tabs + apps';
+    toast(tabsOnly ? 'Tabs-only — executables are safe.' : 'Tabs + apps — everything is fair game.');
+    if (running) scan();
+  });
   addEventListener('keydown', (e) => { if (e.code === 'Space' && running) { e.preventDefault(); throwTreat(); } });
-  addEventListener('resize', () => { computeGrid(); });
+  addEventListener('resize', () => { computeGrid(); buildReactSpots(); });
 });
 
 requestAnimationFrame(loop);

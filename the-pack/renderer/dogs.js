@@ -41,6 +41,7 @@ class Dog {
     this.face = 'right';
 
     // AI fields (owned by game.js)
+    this.active = true;      // benched via its roster card when false
     this.state = 'roam';
     this.lock = null;        // target being hunted/chewed
     this.opponent = null;    // dog for revenge
