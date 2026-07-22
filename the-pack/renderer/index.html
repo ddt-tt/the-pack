@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'">
+  <title>who ate the tab?</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="arena"></div>
+
+  <!-- roster is populated by game.js -->
+  <div id="roster"></div>
+
+  <!-- empty-lawn hint -->
+  <div id="empty" hidden>
+    <div class="big">🌾</div>
+    <p>No tabs or apps found to eat. Open a browser tab or launch an app — the pack is waiting.</p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="modePill" class="safe" title="Toggle Safe / Chaos mode">
+      <span class="dot"></span><span class="label">Safe Mode</span>
+    </div>
+    <div class="sep"></div>
+    <div class="stat"><b id="s-eaten">0</b><span>eaten</span></div>
+    <div class="stat"><b id="s-pack">5</b><span>on the hunt</span></div>
+    <div class="sep"></div>
+    <button class="btn ghost" id="btnPause">⏸ Call off</button>
+    <button class="btn" id="btnTreat">🦴 Treat</button>
+    <button class="btn ghost" id="btnSound" title="Toggle sound">🔊</button>
+  </div>
+
+  <!-- toasts -->
+  <div id="toast"></div>
+
+  <!-- intro overlay -->
+  <div id="intro" class="overlay">
+    <div class="card intro-card">
+      <p class="tag">Chindōgu Hackathon — Useless Tech</p>
+      <p class="big">🐕</p>
+      <h1 class="dontwork">I don't want to work</h1>
+      <div class="row">
+        <button class="btn big-yes" id="btnStart">Yes</button>
+      </div>
+      <p class="fineprint">Say yes and the pack starts eating your real <b>tabs &amp; apps</b>.
+         <b>Safe Mode is on</b> — nothing real closes yet. Click a dog on the left, then a
+         target, to aim it. 🦴 Treat (or Space) distracts one; Call off pauses them.</p>
+      <div class="perm">
+        <span>See running apps</span><span id="perm-apps">checking…</span>
+      </div>
+      <div class="perm">
+        <span>See &amp; close browser tabs</span><span id="perm-browsers">checking…</span>
+      </div>
+      <p class="fineprint">macOS may ask to allow <b>Automation</b> the first time a dog eats
+         something — grant it in <b>System Settings → Privacy &amp; Security → Automation</b>.</p>
+    </div>
+  </div>
+
+  <!-- chaos confirm overlay -->
+  <div id="chaos" class="overlay" hidden>
+    <div class="card">
+      <p class="big">⚠️</p>
+      <h1>Unleash Chaos Mode?</h1>
+      <p>In Chaos Mode the dogs <b>really close your browser tabs and quit your running apps.</b>
+         Unsaved work can be lost, and eating an app is <b>not undoable</b>.</p>
+      <p style="font-size:12.5px">Protected apps (Finder, this app, your terminal/editor) are always
+         safe. You can switch back to Safe Mode any time.</p>
+      <div class="mode-choice">
+        <button class="btn danger" id="chaosGo">Yes — let them really eat 💥
+          <small>Real tabs close and apps quit from now on.</small></button>
+        <button class="btn" id="chaosCancel" style="background:#ece0c9;box-shadow:0 4px 0 #cbb893">
+          Stay in Safe Mode
+          <small>Keep everything simulated.</small></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sprites.js"></script>
+  <script src="dogs.js"></script>
+  <script src="fight.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+:root{
+  --lawn-1:#7cb342; --lawn-2:#4e8228; --sky:#bfe3ff;
+  --win:#fbfbfd; --win-bar:#2b2f3a; --win-bar-2:#3a4152;
+  --ink:#1e2230; --muted:#8a90a2; --danger:#e05252; --ok:#57b85f; --warn:#e0a052;
+  --gold:#ffcf33; --gold-2:#ff9a1f;
+  --shadow:0 14px 30px rgba(20,30,15,.28);
+  --ui:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(--ink);
+  -webkit-user-select:none;user-select:none;cursor:default;
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--sky) 0%, transparent 55%),
+    linear-gradient(180deg, var(--lawn-1) 0%, var(--lawn-2) 100%);}
+#arena{position:fixed;inset:0;
+  background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 46px, rgba(0,0,0,.03) 46px 92px);}
+
+/* ───────────────────────── HUD ───────────────────────── */
+#hud{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:80;
+  display:flex;gap:10px;align-items:center;background:rgba(20,24,18,.6);
+  backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);
+  padding:8px 12px;border-radius:16px;color:#fff;box-shadow:var(--shadow);
+  font-size:13px;white-space:nowrap}
+#hud .stat{display:flex;flex-direction:column;line-height:1.05;min-width:52px;text-align:center}
+#hud .stat b{font-size:18px;font-variant-numeric:tabular-nums}
+#hud .stat span{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.72}
+#hud .sep{width:1px;height:28px;background:rgba(255,255,255,.22)}
+.btn{font-family:var(--ui);font-weight:700;cursor:pointer;border:0;border-radius:11px;
+  padding:9px 13px;font-size:13.5px;color:#3a2a12;
+  background:linear-gradient(180deg,#ffe08a,#f5c04a);box-shadow:0 4px 0 #c79322;
+  transition:transform .06s,box-shadow .06s,filter .1s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c79322}
+.btn.ghost{background:rgba(255,255,255,.14);color:#fff;box-shadow:none;border:1px solid rgba(255,255,255,.25)}
+.btn.danger{background:linear-gradient(180deg,#ff8a8a,#e05252);box-shadow:0 4px 0 #a83636;color:#fff}
+.btn:disabled{filter:grayscale(.6) opacity(.55);cursor:not-allowed}
+
+/* mode pill */
+#modePill{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;
+  font-weight:800;font-size:12.5px;letter-spacing:.03em;cursor:pointer;border:1px solid transparent}
+#modePill.safe{background:rgba(87,184,95,.18);border-color:rgba(87,184,95,.5);color:#d9ffdc}
+#modePill.chaos{background:rgba(224,82,82,.22);border-color:rgba(224,82,82,.6);color:#ffd9d9;
+  animation:chaospulse 1.1s ease-in-out infinite}
+@keyframes chaospulse{50%{box-shadow:0 0 0 4px rgba(224,82,82,.18)}}
+#modePill .dot{width:9px;height:9px;border-radius:50%}
+#modePill.safe .dot{background:var(--ok)}
+#modePill.chaos .dot{background:var(--danger)}
+
+/* ─────────────────────── dog roster (left) ─────────────────────── */
+#roster{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:78;
+  display:flex;flex-direction:column;gap:8px;width:186px}
+.roster-card{display:flex;align-items:center;gap:9px;background:rgba(20,24,18,.55);
+  backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.16);border-radius:14px;
+  padding:7px 9px;color:#fff;cursor:pointer;transition:transform .08s,border-color .1s,background .1s}
+.roster-card:hover{transform:translateX(3px);background:rgba(20,24,18,.72)}
+.roster-card.selected{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,207,51,.35)}
+.roster-card .chip{width:38px;height:38px;flex:0 0 38px;border-radius:10px;overflow:hidden;
+  background:linear-gradient(180deg,#7cb342,#4e8228);display:grid;place-items:center}
+.roster-card .chip svg{width:150%;height:150%;transform:translateY(6%)}
+.roster-card .who{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.roster-card .who b{font-size:13.5px}
+.roster-card .who span{font-size:10px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roster-card .who .pron{font-size:9px;opacity:.55;font-style:italic}
+.roster-card .state{margin-left:auto;font-size:15px}
+#rosterHint{font-size:10.5px;color:rgba(255,255,255,.85);text-align:center;
+  background:rgba(20,24,18,.5);border-radius:10px;padding:5px 6px;line-height:1.3}
+
+/* ─────────────────────── target windows ─────────────────────── */
+.target{position:absolute;width:220px;height:132px;background:var(--win);border-radius:12px;
+  box-shadow:var(--shadow);overflow:hidden;will-change:transform;transition:box-shadow .12s}
+.target .bar{height:28px;background:linear-gradient(180deg,var(--win-bar-2),var(--win-bar));
+  color:#fff;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:12px;font-weight:700}
+.target .bar .kind{font-size:13px}
+.target .bar .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.target .body{padding:9px 11px;font-size:11px;color:#3a4152}
+.target .fake-line{height:8px;border-radius:4px;background:#e7e9f0;margin:6px 0}
+.target .hp{position:absolute;left:8px;right:8px;bottom:7px;height:7px;border-radius:5px;background:#e4e7ee;overflow:hidden}
+.target .hp i{display:block;height:100%;width:100%;background:var(--ok);transition:width .2s,background .2s}
+.target .hplabel{position:absolute;left:9px;bottom:16px;font-size:8px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+.target.assignable{cursor:pointer;outline:2px dashed transparent}
+.target.assignable:hover{outline-color:var(--gold);box-shadow:0 0 0 3px rgba(255,207,51,.25),var(--shadow)}
+.target.hurt{animation:shake .16s}
+@keyframes shake{25%{transform:translate(var(--tx),var(--ty)) rotate(-1.4deg)}75%{transform:translate(var(--tx),var(--ty)) rotate(1.4deg)}}
+.target.protected{filter:grayscale(.55) opacity(.7)}
+.target.protected .bar{background:linear-gradient(180deg,#5a5f6b,#3f4450)}
+.target .lock{position:absolute;top:6px;right:8px;font-size:13px}
+.target.dying{transition:transform .42s,opacity .42s}
+
+/* ─────────────────────── dogs ─────────────────────── */
+.dog{position:absolute;z-index:40;width:120px;height:114px;pointer-events:none;will-change:transform}
+.dog .flip{width:100%;height:100%;transform-origin:center;transition:transform .05s}
+.dog.face-left .flip{transform:scaleX(-1)}
+.dog-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 6px 5px rgba(0,0,0,.25));overflow:visible}
+.dog.selected .dog-svg{filter:drop-shadow(0 0 0 var(--gold)) drop-shadow(0 0 6px var(--gold))}
+
+/* idle life: breathing, tail wag, ear twitch (scoped so states can override) */
+.dog-svg .rig{animation:bob 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+.dog-svg .tail{animation:wag .8s ease-in-out infinite;transform-box:fill-box}
+.dog-svg .ear-tw{animation:eartwitch 4.4s ease-in-out infinite;transform-box:fill-box}
+@keyframes bob{50%{transform:translateY(-3px)}}
+@keyframes wag{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(13deg)}}
+@keyframes eartwitch{0%,86%,100%{transform:rotate(0)}90%{transform:rotate(-9deg)}94%{transform:rotate(5deg)}}
+
+/* walking: quicker bob + happy tail */
+.dog.walking .dog-svg .rig{animation-duration:.5s}
+.dog.walking .dog-svg .tail{animation-duration:.4s}
+
+/* chewing: head lunges, fast tail */
+.dog.chomp .dog-svg .head{animation:chomp .26s infinite;transform-box:fill-box;transform-origin:center bottom}
+.dog.chomp .dog-svg .tail{animation-duration:.28s}
+@keyframes chomp{0%,100%{transform:translateX(0) scaleY(1)}50%{transform:translateX(4px) scaleY(.9)}}
+
+/* nameplate */
+.dog .nameplate{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);
+  font-size:10px;font-weight:800;color:#fff;background:rgba(20,24,18,.6);
+  padding:1px 8px;border-radius:8px;letter-spacing:.02em;pointer-events:none;white-space:nowrap}
+
+/* per-dog eaten counter, below the nameplate */
+.dog .eatcount{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);
+  font-size:10px;font-weight:800;color:#fff;background:rgba(224,82,82,.78);
+  padding:0 7px;border-radius:8px;white-space:nowrap;pointer-events:none;
+  font-variant-numeric:tabular-nums;box-shadow:0 2px 4px rgba(0,0,0,.25)}
+
+/* big reaction icon, floating above the dog's head */
+.dog .react-badge{position:absolute;left:50%;top:-46px;transform:translateX(-50%) scale(.4);
+  font-size:48px;line-height:1;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+.dog .react-badge.show{opacity:1;transform:translateX(-50%) scale(1);animation:badgebob 1s ease-in-out infinite}
+@keyframes badgebob{50%{transform:translateX(-50%) translateY(-6px) scale(1)}}
+
+/* speech bubble */
+.dog .bubble{position:absolute;left:50%;top:-6px;transform:translate(-50%,-100%) scale(.8);
+  background:#fff;color:#1e2230;font-size:12px;font-weight:800;padding:5px 10px;border-radius:12px;
+  box-shadow:var(--shadow);white-space:nowrap;opacity:0;transition:opacity .15s,transform .15s;pointer-events:none}
+.dog .bubble.show{opacity:1;transform:translate(-50%,-100%) scale(1)}
+.dog .bubble:after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;
+  border:7px solid transparent;border-top-color:#fff;border-bottom:0}
+
+/* ── props layer (piano, oreo, dumbbell, tears, stars) ── */
+.dog .props{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.prop{position:absolute;font-size:30px;line-height:1}
+.tear{position:absolute;font-size:15px;animation:teardrop .9s ease-in forwards}
+@keyframes teardrop{0%{transform:translateY(0) scale(.6);opacity:0}20%{opacity:1}100%{transform:translateY(38px) scale(1);opacity:0}}
+.note{position:absolute;font-size:18px;color:#5a4a8a;animation:notefloat 1.6s ease-out forwards}
+@keyframes notefloat{0%{transform:translate(0,0) rotate(0);opacity:0}20%{opacity:1}100%{transform:translate(22px,-46px) rotate(20deg);opacity:0}}
+.prop.piano{left:50%;bottom:2px;transform:translateX(-50%);font-size:40px;animation:pianoplay .5s ease-in-out infinite}
+@keyframes pianoplay{50%{transform:translateX(-50%) translateY(-2px)}}
+.prop.oreo{left:56%;top:44%;font-size:26px;animation:munch .35s ease-in-out infinite}
+@keyframes munch{50%{transform:scale(.82) rotate(-8deg)}}
+.prop.dumbbell{left:50%;top:30%;transform:translateX(-50%);font-size:34px;animation:lift .5s ease-in-out infinite}
+@keyframes lift{50%{transform:translateX(-50%) translateY(-9px)}}
+.prop.sweat{font-size:14px;animation:teardrop .7s ease-in forwards}
+.prop.shrug{left:50%;top:20%;transform:translateX(-50%);font-size:32px}
+
+/* ── Super Saiyan (Lupita fight mode) ── */
+.dog .aura{position:absolute;left:50%;top:52%;width:180px;height:200px;transform:translate(-50%,-50%);
+  pointer-events:none;opacity:0;transition:opacity .2s;z-index:-1}
+.dog.saiyan .aura{opacity:1}
+.dog .aura:before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(closest-side, rgba(255,207,51,.85), rgba(255,154,31,.35) 55%, transparent 72%);
+  animation:auraflare .28s ease-in-out infinite,auraspin 3s linear infinite;filter:blur(2px)}
+@keyframes auraflare{50%{transform:scale(1.08)}}
+@keyframes auraspin{to{transform:rotate(360deg)}}
+.dog.saiyan .dog-svg{filter:drop-shadow(0 0 10px var(--gold)) drop-shadow(0 0 18px var(--gold-2)) brightness(1.08)}
+.dog .saiyan-hair{position:absolute;left:50%;top:8%;transform:translateX(-50%);
+  width:64px;height:44px;opacity:0;transition:opacity .15s;
+  background:linear-gradient(180deg,var(--gold),var(--gold-2));
+  clip-path:polygon(0% 100%,8% 30%,18% 70%,30% 5%,42% 60%,50% 0%,58% 60%,70% 5%,82% 70%,92% 30%,100% 100%);
+  filter:drop-shadow(0 0 6px var(--gold))}
+.dog.saiyan .saiyan-hair{opacity:1;animation:hairflicker .12s steps(2) infinite}
+@keyframes hairflicker{50%{transform:translateX(-50%) scaleY(1.08)}}
+
+/* fighting: dog shakes inside the brawl */
+.dog.fighting .dog-svg{animation:brawlshake .1s infinite}
+@keyframes brawlshake{0%{transform:translate(-2px,1px) rotate(-3deg)}50%{transform:translate(3px,-1px) rotate(3deg)}}
+
+/* ─────────────────────── brawl cloud ─────────────────────── */
+.brawl{position:absolute;z-index:55;width:150px;height:150px;transform:translate(-50%,-50%);pointer-events:none}
+.brawl .cloud{position:absolute;inset:0;display:grid;place-items:center;font-size:96px;
+  animation:cloudspin .5s linear infinite,cloudpuff .4s ease-in-out infinite}
+@keyframes cloudspin{to{transform:rotate(360deg)}}
+@keyframes cloudpuff{50%{transform:scale(1.1)}}
+.brawl .spark{position:absolute;font-size:26px;animation:sparkfly .6s ease-out infinite}
+@keyframes sparkfly{0%{transform:translate(0,0) scale(.5);opacity:1}100%{transform:translate(var(--sx),var(--sy)) scale(1.1);opacity:0}}
+.brawl .clock{position:absolute;left:50%;top:-30px;transform:translateX(-50%);
+  font-family:var(--mono);font-weight:800;font-size:22px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5);
+  font-variant-numeric:tabular-nums}
+
+/* ─────────────────────── ambient dolphin ─────────────────────── */
+.dolphin{position:absolute;z-index:47;width:150px;height:90px;pointer-events:none;will-change:transform}
+.dolphin .flip{width:100%;height:100%}
+.dolphin-svg{width:100%;height:100%;display:block;
+  filter:drop-shadow(0 6px 7px rgba(30,80,110,.32));animation:swimbob 1.9s ease-in-out infinite}
+@keyframes swimbob{50%{transform:translateY(-6px) rotate(-2deg)}}
+.dolphin-svg .fin{animation:finwave 1.2s ease-in-out infinite;transform-box:fill-box}
+@keyframes finwave{50%{transform:rotate(-6deg)}}
+
+/* crumbs flying off a chewed target */
+.crumb{position:absolute;z-index:39;font-size:16px;pointer-events:none;animation:crumb .7s forwards}
+@keyframes crumb{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(26px) scale(.4);opacity:0}}
+
+/* thrown treat */
+.bone{position:absolute;z-index:35;font-size:32px;pointer-events:none;
+  animation:drop .4s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 4px 3px rgba(0,0,0,.25))}
+@keyframes drop{0%{transform:translateY(-40px) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+
+/* ─────────────────────── overlays ─────────────────────── */
+.overlay{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:20px;
+  background:radial-gradient(120% 90% at 50% 20%, rgba(30,40,20,.62), rgba(10,15,8,.9))}
+.overlay[hidden]{display:none}
+.card{background:#fff;border-radius:22px;padding:26px 30px;max-width:460px;box-shadow:var(--shadow);
+  max-height:86vh;overflow:auto}
+.card .big{font-size:52px;margin:0}
+.card h1{margin:.15em 0 .1em;font-size:27px}
+.card p{margin:.5em 0;color:#4a5163;font-size:14px;line-height:1.6}
+.card .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
+.card ul{text-align:left;color:#4a5163;font-size:13.5px;line-height:1.6;padding-left:20px;margin:.6em 0}
+.card .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.perm{display:flex;align-items:center;gap:8px;justify-content:space-between;
+  background:#f3f5f9;border-radius:10px;padding:8px 12px;font-size:13px;margin:6px 0}
+.perm .ok{color:var(--ok);font-weight:800}
+.perm .no{color:var(--danger);font-weight:800}
+.intro-card .dontwork{font-size:34px;margin:.1em 0 .35em;line-height:1.1;text-wrap:balance}
+.intro-card .big-yes{font-size:22px;padding:14px 52px;border-radius:14px}
+.intro-card .fineprint{font-size:12px;color:#6a6152;line-height:1.5;margin:.7em 0 .2em}
+.mode-choice{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.mode-choice .btn{width:100%;text-align:left;padding:12px 14px}
+.mode-choice small{display:block;font-weight:400;color:#6a6152;font-size:11.5px;margin-top:2px}
+
+/* toast log */
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:82;
+  display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast-line{background:rgba(20,24,18,.82);color:#fff;font-size:12.5px;font-family:var(--mono);
+  padding:6px 12px;border-radius:10px;box-shadow:var(--shadow);opacity:0;animation:toast 3.2s forwards}
+.toast-line.eat{background:rgba(78,130,40,.92)}
+.toast-line.chaos{background:rgba(224,82,82,.92)}
+.toast-line.block{background:rgba(224,160,82,.92)}
+@keyframes toast{0%{opacity:0;transform:translateY(8px)}10%,80%{opacity:1;transform:none}100%{opacity:0}}
+
+#empty{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;
+  color:rgba(255,255,255,.9);text-align:center;text-shadow:0 2px 6px rgba(0,0,0,.4);pointer-events:none}
+#empty[hidden]{display:none}
+#empty .big{font-size:44px}
+#empty p{font-size:15px;max-width:340px;margin:.4em auto}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important}}

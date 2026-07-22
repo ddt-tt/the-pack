@@ -1,0 +1,318 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Rex.exe — the desktop dog that eats your work</title>
+<style>
+  :root{
+    --lawn-1:#7cb342; --lawn-2:#558b2f; --sky:#bfe3ff;
+    --dirt:#6d4c41; --bone:#f4e9d8;
+    --win:#fbfbfd; --win-bar:#2b2f3a; --win-bar-2:#3a4152;
+    --ink:#1e2230; --muted:#8a90a2; --danger:#e05252; --ok:#57b85f;
+    --shadow:0 14px 30px rgba(20,30,15,.28);
+    --ui: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);
+    background:
+      radial-gradient(120% 80% at 50% -10%, var(--sky) 0%, transparent 55%),
+      linear-gradient(180deg, var(--lawn-1) 0%, var(--lawn-2) 100%);
+    -webkit-user-select:none;user-select:none;touch-action:none;color:var(--ink)}
+  /* faint mowed-lawn stripes for texture */
+  #desk{position:fixed;inset:0;
+    background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 44px, rgba(0,0,0,.03) 44px 88px);}
+
+  /* ---- top HUD ---- */
+  #hud{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:50;
+    display:flex;gap:10px;align-items:center;background:rgba(20,24,18,.55);
+    backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18);
+    padding:8px 12px;border-radius:14px;color:#fff;box-shadow:var(--shadow);
+    font-size:13px;white-space:nowrap}
+  #hud .stat{display:flex;flex-direction:column;line-height:1.05;min-width:56px}
+  #hud .stat b{font-size:17px;font-variant-numeric:tabular-nums}
+  #hud .stat span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+  #hud .sep{width:1px;height:26px;background:rgba(255,255,255,.22)}
+  .btn{font-family:var(--ui);font-weight:700;cursor:pointer;border:0;border-radius:11px;
+    padding:9px 14px;font-size:14px;color:#3a2a12;
+    background:linear-gradient(180deg,#ffe08a,#f5c04a);box-shadow:0 4px 0 #c79322;transition:transform .06s,box-shadow .06s}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c79322}
+  .btn:disabled{filter:grayscale(.6) opacity(.6);cursor:not-allowed}
+
+  /* ---- app windows (your precious "work") ---- */
+  .window{position:absolute;width:230px;height:150px;background:var(--win);
+    border-radius:12px;box-shadow:var(--shadow);overflow:hidden;
+    -webkit-mask-composite:intersect;mask-composite:intersect;will-change:transform}
+  .window .bar{height:30px;background:linear-gradient(180deg,var(--win-bar-2),var(--win-bar));
+    color:#fff;display:flex;align-items:center;gap:7px;padding:0 10px;cursor:grab;font-size:12.5px;font-weight:700}
+  .window.dragging .bar{cursor:grabbing}
+  .window .dot{width:9px;height:9px;border-radius:50%}
+  .window .body{padding:10px 12px;font-size:11px;color:#3a4152;line-height:1.5}
+  .window .body .fake-line{height:8px;border-radius:4px;background:#e7e9f0;margin:7px 0}
+  .window .hp{position:absolute;left:8px;right:8px;bottom:7px;height:7px;border-radius:5px;background:#e4e7ee;overflow:hidden}
+  .window .hp i{display:block;height:100%;width:100%;background:var(--ok);transition:width .25s,background .25s}
+  .window .hplabel{position:absolute;left:8px;bottom:16px;font-size:8.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted)}
+  .window.hurt{animation:shake .18s}
+  @keyframes shake{25%{transform:translate(var(--tx),var(--ty)) rotate(-1.2deg)}
+    75%{transform:translate(var(--tx),var(--ty)) rotate(1.2deg)}}
+
+  /* ---- the dog ---- */
+  #dog{position:absolute;z-index:40;width:74px;height:74px;font-size:58px;line-height:74px;
+    text-align:center;will-change:transform;filter:drop-shadow(0 6px 4px rgba(0,0,0,.25));pointer-events:none}
+  #dog.chomp{animation:chomp .28s infinite}
+  @keyframes chomp{0%,100%{transform:scale(1,1)}50%{transform:scale(1.12,.86)}}
+  .bubble{position:absolute;z-index:41;background:#fff;color:#1e2230;font-size:12px;font-weight:700;
+    padding:6px 10px;border-radius:12px;box-shadow:var(--shadow);white-space:nowrap;pointer-events:none;
+    transform:translate(-50%,-100%);opacity:0;transition:opacity .2s}
+  .bubble.show{opacity:1}
+  .bubble:after{content:"";position:absolute;left:22px;bottom:-6px;border:7px solid transparent;border-top-color:#fff;border-bottom:0}
+
+  .bone{position:absolute;z-index:35;font-size:34px;pointer-events:none;
+    animation:drop .4s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 4px 3px rgba(0,0,0,.25))}
+  @keyframes drop{0%{transform:translateY(-40px) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+
+  .crumb{position:absolute;z-index:39;font-size:16px;pointer-events:none;animation:crumb .7s forwards}
+  @keyframes crumb{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(26px) scale(.4);opacity:0}}
+
+  /* ---- overlays ---- */
+  #intro,#over{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;gap:14px;
+    background:radial-gradient(120% 90% at 50% 20%, rgba(30,40,20,.55), rgba(10,15,8,.82))}
+  #over{display:none}
+  .card{background:#fff;border-radius:20px;padding:26px 30px;max-width:420px;box-shadow:var(--shadow)}
+  .card h1{margin:.1em 0 .05em;font-size:26px}
+  .card p{margin:.4em 0;color:#4a5163;font-size:14px;line-height:1.55}
+  .card .big{font-size:52px;margin:0}
+  .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important}}
+  @media (max-width:520px){.window{width:180px;height:126px}}
+</style>
+
+<div id="desk"></div>
+
+<div id="hud" hidden>
+  <div class="stat"><b id="s-time">0s</b><span>survived</span></div>
+  <div class="sep"></div>
+  <div class="stat"><b id="s-alive">3</b><span>windows left</span></div>
+  <div class="sep"></div>
+  <div class="stat"><b id="s-treats">3</b><span>treats</span></div>
+  <div class="sep"></div>
+  <button class="btn" id="feed">🦴 Throw a treat</button>
+</div>
+
+<div id="intro">
+  <div class="card">
+    <p class="big">🐕</p>
+    <p class="tag">Chindōgu Hackathon — Useless Tech</p>
+    <h1>Rex.exe</h1>
+    <p>You installed a "desktop companion." Rex is <b>hungry</b> and has decided your open windows are food.</p>
+    <p><b>Drag</b> a window by its title bar to yank it out of his mouth.<br>
+       <b>Throw a treat</b> 🦴 to distract him — but you only have three.<br>
+       When a window's structural integrity hits zero, Rex eats it. Forever.</p>
+    <button class="btn" id="start">Let him in</button>
+  </div>
+</div>
+
+<div id="over">
+  <div class="card">
+    <p class="big" id="over-emoji">🦴</p>
+    <h1 id="over-title">Rex is full.</h1>
+    <p id="over-msg"></p>
+    <button class="btn" id="again">Adopt another one</button>
+  </div>
+</div>
+
+<script>
+const desk = document.getElementById('desk');
+const hud = document.getElementById('hud');
+const dogEl = document.createElement('div'); dogEl.id='dog'; dogEl.textContent='🐕'; desk.appendChild(dogEl);
+const bubble = document.createElement('div'); bubble.className='bubble'; desk.appendChild(bubble);
+
+const APP_DEFS = [
+  {title:'Quarterly_Report_FINAL.doc', dot:'#4a90e2'},
+  {title:'budget_v7_REALFINAL.xlsx',   dot:'#57b85f'},
+  {title:'Terminal — deploy.sh',        dot:'#e0a052'},
+  {title:'thesis_ch4.tex',              dot:'#c471ed'},
+];
+const BARKS = ['mine now 😋','ooh a spreadsheet','is that load-bearing?','nom','feed me or the report gets it',
+  'delicious deliverables','404: window not found soon','i am a good boy (lie)','more. MORE.','tastes like overtime'];
+
+let W=[], dog, bones=[], running=false, t0=0, treats=3, raf, lastBark=0;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const now=()=>performance.now();
+
+function makeWindow(def,i){
+  const el=document.createElement('div'); el.className='window';
+  const cols=Math.min(3,APP_DEFS.length);
+  el.innerHTML=`<div class="bar"><span class="dot" style="background:${def.dot}"></span>${def.title}</div>
+    <div class="body"><div class="fake-line" style="width:90%"></div>
+      <div class="fake-line" style="width:70%"></div><div class="fake-line" style="width:80%"></div></div>
+    <div class="hplabel">structural integrity</div>
+    <div class="hp"><i></i></div>`;
+  desk.appendChild(el);
+  const w=el.offsetWidth||230, h=el.offsetHeight||150;
+  const pad=30, cx=(innerWidth-pad*2)/cols;
+  const win={el, w, h, hp:100, holes:[],
+    x:pad+ (i%cols)*cx + rnd(0,Math.max(0,cx-w)),
+    y: 90 + Math.floor(i/cols)*(h+40) + rnd(0,30), dead:false};
+  win.x=Math.max(10,Math.min(innerWidth-w-10,win.x));
+  win.y=Math.max(70,Math.min(innerHeight-h-10,win.y));
+  place(win); W.push(win);
+  attachDrag(win);
+  return win;
+}
+function place(win){ win.el.style.setProperty('--tx',win.x+'px'); win.el.style.setProperty('--ty',win.y+'px');
+  win.el.style.transform=`translate(${win.x}px,${win.y}px)`; }
+function center(win){return {x:win.x+win.w/2,y:win.y+win.h/2};}
+
+function attachDrag(win){
+  const bar=win.el.querySelector('.bar');
+  bar.addEventListener('pointerdown',e=>{
+    if(win.dead||!running)return;
+    win.el.classList.add('dragging'); win.el.style.zIndex=45;
+    const ox=e.clientX-win.x, oy=e.clientY-win.y;
+    bar.setPointerCapture(e.pointerId);
+    const move=ev=>{ win.x=Math.max(0,Math.min(innerWidth-win.w,ev.clientX-ox));
+      win.y=Math.max(0,Math.min(innerHeight-win.h,ev.clientY-oy)); place(win);
+      if(dog.lock===win){dog.confused=now()+500;} };
+    const up=ev=>{ win.el.classList.remove('dragging'); win.el.style.zIndex=''; 
+      bar.releasePointerCapture(e.pointerId);
+      bar.removeEventListener('pointermove',move); bar.removeEventListener('pointerup',up); };
+    bar.addEventListener('pointermove',move); bar.addEventListener('pointerup',up);
+  });
+}
+
+function biteHole(win){
+  // record a chunk missing near the dog's side, rebuild CSS mask (real holes)
+  const c=center(win), toDog=Math.atan2(dog.y-c.y, dog.x-c.x);
+  const r=rnd(26,40);
+  const hx=win.w/2 + Math.cos(toDog)*(win.w/2-6) + rnd(-12,12);
+  const hy=win.h/2 + Math.sin(toDog)*(win.h/2-6) + rnd(-12,12);
+  win.holes.push({x:hx,y:hy,r});
+  const base='linear-gradient(#000,#000)';
+  const holes=win.holes.map(h=>`radial-gradient(circle at ${h.x}px ${h.y}px, transparent 0 ${h.r}px, #000 ${h.r+1}px)`);
+  const mask=[base,...holes].join(',');
+  win.el.style.webkitMaskImage=mask; win.el.style.maskImage=mask;
+  // crumbs fly out
+  const crumb=document.createElement('div'); crumb.className='crumb'; crumb.textContent=['🍞','📄','🧾','✏️'][Math.floor(rnd(0,4))];
+  crumb.style.left=(win.x+hx)+'px'; crumb.style.top=(win.y+hy)+'px'; desk.appendChild(crumb);
+  setTimeout(()=>crumb.remove(),700);
+}
+
+function say(txt){ const c={x:dog.x+37,y:dog.y}; bubble.textContent=txt;
+  bubble.style.left=c.x+'px'; bubble.style.top=(c.y-6)+'px'; bubble.classList.add('show');
+  clearTimeout(say._t); say._t=setTimeout(()=>bubble.classList.remove('show'),1600); }
+
+function throwTreat(){
+  if(!running||treats<=0)return; treats--; document.getElementById('s-treats').textContent=treats;
+  const bx=rnd(80,innerWidth-80), by=rnd(120,innerHeight-80);
+  const b=document.createElement('div'); b.className='bone'; b.textContent='🦴';
+  b.style.left=(bx-17)+'px'; b.style.top=(by-17)+'px'; desk.appendChild(b);
+  bones.push({el:b,x:bx,y:by}); say('BONE!'); 
+  if(treats===0) document.getElementById('feed').disabled=true;
+}
+
+function startGame(){
+  W.forEach(w=>w.el.remove()); W=[]; bones.forEach(b=>b.el.remove()); bones=[];
+  APP_DEFS.forEach(makeWindow);
+  dog={x:innerWidth/2-37, y:-80, tx:innerWidth/2, ty:innerHeight/2, hunger:40,
+    state:'enter', lock:null, chompAt:0, confused:0, distracted:null};
+  treats=3; document.getElementById('s-treats').textContent=3;
+  document.getElementById('feed').disabled=false;
+  running=true; t0=now(); hud.hidden=false;
+  document.getElementById('intro').style.display='none';
+  document.getElementById('over').style.display='none';
+  cancelAnimationFrame(raf); raf=requestAnimationFrame(loop);
+}
+
+function loop(){
+  if(!running)return;
+  const dt=1/60, T=now();
+  const alive=W.filter(w=>!w.dead);
+  document.getElementById('s-time').textContent=Math.floor((T-t0)/1000)+'s';
+  document.getElementById('s-alive').textContent=alive.length;
+
+  // hunger climbs; faster over time = escalating chaos
+  const ramp=1+(T-t0)/60000;
+  dog.hunger=Math.min(100,dog.hunger+dt*7*ramp);
+
+  // ---- decide target ----
+  if(dog.state==='enter'){ dog.tx=innerWidth/2; dog.ty=innerHeight/2;
+    if(dog.y>60){dog.state='wander';} }
+  else if(dog.distracted && T<dog.distracted.until){
+    const b=dog.distracted.bone; dog.tx=b.x; dog.ty=b.y; dog.lock=null;
+  }
+  else if(bones.length){ // go for nearest bone first, always
+    let nb=bones[0],nd=1e9; for(const b of bones){const d=Math.hypot(b.x-dog.x,b.y-dog.y); if(d<nd){nd=d;nb=b;}}
+    dog.tx=nb.x; dog.ty=nb.y; dog.lock=null;
+    if(nd<40){ // eat the bone
+      nb.el.remove(); bones=bones.filter(b=>b!==nb);
+      dog.hunger=Math.max(0,dog.hunger-55); dog.distracted={until:T+2600,bone:{x:dog.x,y:dog.y}};
+      say('❤️ good bone'); }
+  }
+  else if(dog.hunger>55 && alive.length){ // hunt a window
+    if(!dog.lock||dog.lock.dead||T>dog.confused && dog.repick<T){
+      let best=alive[0],bd=1e9; for(const w of alive){const c=center(w);const d=Math.hypot(c.x-dog.x,c.y-dog.y);if(d<bd){bd=d;best=w;}}
+      dog.lock=best; dog.repick=T+900;
+    }
+    if(dog.lock){const c=center(dog.lock); dog.tx=c.x; dog.ty=c.y;}
+  }
+  else { // wander contentedly
+    dog.lock=null;
+    if(Math.hypot(dog.tx-dog.x,dog.ty-dog.y)<30){ dog.tx=rnd(60,innerWidth-60); dog.ty=rnd(120,innerHeight-120);}
+  }
+
+  // ---- move ----
+  const speed=(dog.hunger>75?230:150)*ramp*(T<dog.confused?0.35:1);
+  const dx=dog.tx-(dog.x+37), dy=dog.ty-(dog.y+37), dist=Math.hypot(dx,dy)||1;
+  if(dist>4){ dog.x+=dx/dist*speed*dt; dog.y+=dy/dist*speed*dt; }
+  dogEl.style.transform=`translate(${dog.x}px,${dog.y}px) scaleX(${dx<0?-1:1})`;
+  dogEl.textContent = dog.hunger>75 ? '🐺' : '🐕';
+
+  // ---- chew the locked window if on top of it ----
+  let chewing=false;
+  if(dog.lock && !dog.lock.dead && !dog.distracted){
+    const w=dog.lock, c=center(w);
+    if(Math.hypot(c.x-(dog.x+37),c.y-(dog.y+37)) < Math.max(w.w,w.h)/2+10){
+      chewing=true;
+      if(T-dog.chompAt>420){ dog.chompAt=T;
+        w.hp-=rnd(7,12); biteHole(w);
+        const bar=w.el.querySelector('.hp i'); const p=Math.max(0,w.hp);
+        bar.style.width=p+'%'; bar.style.background = p<35?'var(--danger)':p<65?'#e0a052':'var(--ok)';
+        w.el.classList.remove('hurt'); void w.el.offsetWidth; w.el.classList.add('hurt');
+        if(T-lastBark>1400){lastBark=T; say(BARKS[Math.floor(rnd(0,BARKS.length))]);}
+        if(w.hp<=0){ devour(w); }
+      }
+    }
+  }
+  dogEl.classList.toggle('chomp',chewing);
+
+  if(W.every(w=>w.dead)) return endGame();
+  raf=requestAnimationFrame(loop);
+}
+
+function devour(w){
+  w.dead=true; dog.lock=null; dog.hunger=Math.max(0,dog.hunger-30);
+  w.el.style.transition='transform .4s, opacity .4s';
+  w.el.style.transformOrigin=(dog.x+37-w.x)+'px '+(dog.y+37-w.y)+'px';
+  requestAnimationFrame(()=>{w.el.style.transform+=' scale(.02)'; w.el.style.opacity='0';});
+  setTimeout(()=>w.el.remove(),420);
+  say('gulp. 😌');
+}
+
+function endGame(){
+  running=false; cancelAnimationFrame(raf);
+  const secs=Math.floor((now()-t0)/1000);
+  document.getElementById('over-msg').innerHTML=
+    `Rex devoured every last window in <b>${secs} seconds</b>. `+
+    `You threw <b>${3-treats}</b> treat${3-treats===1?'':'s'}. `+
+    `None of your work survived, but that was never the point.`;
+  document.getElementById('over').style.display='flex';
+  bubble.classList.remove('show');
+}
+
+document.getElementById('start').onclick=startGame;
+document.getElementById('again').onclick=startGame;
+document.getElementById('feed').onclick=throwTreat;
+addEventListener('keydown',e=>{ if(e.code==='Space'){e.preventDefault();throwTreat();} });
+addEventListener('resize',()=>{ W.forEach(w=>{ w.x=Math.min(w.x,innerWidth-w.w); w.y=Math.min(w.y,innerHeight-w.h); place(w);});});
+</script>

@@ -1,0 +1,15 @@
+{
+  "name": "the-pack",
+  "version": "0.1.0",
+  "description": "who ate the tab? — 5 dogs that live on your macOS desktop and eat your real browser tabs and running apps. A Chindogu useless-tech desktop companion.",
+  "main": "main.js",
+  "author": "Hackathon 2207",
+  "license": "MIT",
+  "scripts": {
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "fix-electron": "bash scripts/fix-electron.sh"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}
