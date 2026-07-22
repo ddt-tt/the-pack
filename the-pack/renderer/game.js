@@ -61,8 +61,21 @@ const Sfx = {
   sad() { [392, 349, 294, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'sine', 0.05), i * 180)); },
   // No one's louder wail — a bigger, more nasal descending cry.
   wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
-  // Pita's sad piano — as loud as the wail (gain 0.09), a descending phrase.
-  piano() { [523, 466, 392, 349].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'triangle', 0.09), i * 140)); },
+  // Pita's piano: Beethoven's 5th ("Destiny") — da-da-da-DUM, da-da-da-DUM.
+  // G G G E♭ … F F F D, with a lower octave layered in for drama. Loud (~0.1).
+  destiny() {
+    const G = 392, Eb = 311.13, F = 349.23, D = 293.66;
+    const seq = [
+      [G, 0.00, 0.12], [G, 0.15, 0.12], [G, 0.30, 0.12], [Eb, 0.45, 0.60],
+      [F, 1.15, 0.12], [F, 1.30, 0.12], [F, 1.45, 0.12], [D, 1.60, 0.75]
+    ];
+    for (const [f, at, dur] of seq) {
+      setTimeout(() => {
+        this.blip(f, dur, 'triangle', 0.10);   // melody
+        this.blip(f / 2, dur, 'sine', 0.05);   // octave below, for weight
+      }, at * 1000);
+    }
+  },
   hit() { this.blip(90 + Math.random() * 60, 0.09, 'square', 0.05); },
   power() { [220, 330, 440, 660].forEach((f, i) => setTimeout(() => this.blip(f, 0.25, 'sawtooth', 0.04), i * 90)); },
   gulp() { this.blip(180, 0.12, 'triangle', 0.06); setTimeout(() => this.blip(120, 0.14, 'triangle', 0.05), 90); },
@@ -335,8 +348,8 @@ function startReaction(dog) {
   switch (dog.key) {
     case 'pita':
       dog.reaction = { particle: '💧', notes: true, piano: true, then: null };
-      dog.showBadge('🎹'); dog.addProp('piano', '🎹'); dog.say('😭', 2600);
-      Sfx.piano(); dog._nextPiano = now() + 1500;
+      dog.showBadge('🎹'); dog.addProp('piano', '🎹'); dog.say('🎼 …destiny…', 2600);
+      Sfx.destiny(); dog._nextPiano = now() + 2400;
       break;
     case 'oreo':
       dog.reaction = { particle: '💧', then: null };
@@ -449,7 +462,7 @@ function stepDog(dog, T, dt) {
         dog._nextParticle = T + (r.loud ? 230 : 400);
       }
       if (r.loud && T > (dog._nextWail || 0)) { Sfx.wail(); dog._nextWail = T + 1500; }
-      if (r.piano && T > (dog._nextPiano || 0)) { Sfx.piano(); dog._nextPiano = T + 1500; }
+      if (r.piano && T > (dog._nextPiano || 0)) { Sfx.destiny(); dog._nextPiano = T + 2400; }
       if (T > dog.until) {
         dog.clearProps(); dog.hideBadge(); dog.el.classList.remove('training'); releaseSpot(dog);
         if (r.then === 'revenge' && dog.opponent && dog.opponent.active) {
