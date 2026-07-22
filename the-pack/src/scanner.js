@@ -57,6 +57,9 @@ async function listApps() {
 
 // Chromium browsers + Safari share a compatible tab/window vocabulary.
 async function listTabsFor(browser) {
+  // Capture each tab's STABLE id where the browser exposes one (Chromium does;
+  // Safari does not). Positional indices shift as tabs close, so the id is what
+  // lets us reliably close the right tab later.
   const script = `
     if application "${browser}" is running then
       tell application "${browser}"
@@ -71,7 +74,11 @@ async function listTabsFor(browser) {
             try
               set theTitle to (title of t) as text
             end try
-            set out to out & wi & "\\t" & ti & "\\t" & theTitle & linefeed
+            set tid to ""
+            try
+              set tid to (id of t) as text
+            end try
+            set out to out & wi & "\\t" & ti & "\\t" & tid & "\\t" & theTitle & linefeed
           end repeat
         end repeat
         return out
@@ -83,18 +90,21 @@ async function listTabsFor(browser) {
   const tabs = [];
   for (const line of parseLines(stdout)) {
     const parts = line.split('\t');
-    if (parts.length < 2) continue;
+    if (parts.length < 3) continue;
     const win = parseInt(parts[0], 10);
     const tab = parseInt(parts[1], 10);
-    const title = (parts.slice(2).join(' ') || '(untitled)').trim();
+    const tabId = (parts[2] || '').trim();
+    const title = (parts.slice(3).join(' ') || '(untitled)').trim();
     if (Number.isNaN(win) || Number.isNaN(tab)) continue;
     tabs.push({
-      id: `tab:${browser}:${win}:${tab}`,
+      // id (our on-screen key) prefers the stable browser tab id
+      id: tabId ? `tab:${browser}:#${tabId}` : `tab:${browser}:${win}:${tab}`,
       kind: 'tab',
       title: title || '(untitled)',
       browser,
       win,
-      tab
+      tab,
+      tabId: tabId || null
     });
   }
   return tabs;

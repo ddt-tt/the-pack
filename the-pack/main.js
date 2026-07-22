@@ -4,6 +4,7 @@ const path = require('path');
 const scanner = require('./src/scanner');
 const executor = require('./src/executor');
 const safety = require('./src/safety');
+const { log, LOG } = require('./src/logger');
 
 let win = null;
 
@@ -37,6 +38,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  log('── who ate the tab? started ──  log file:', LOG);
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -61,26 +63,39 @@ ipcMain.handle('pack:scan', async () => {
 
 // The real "eat": close a tab or quit an app. Gated by safety mode.
 ipcMain.handle('pack:eat', async (_evt, target) => {
+  const label = `${target && target.kind}:${target && target.title}`;
   const gate = safety.canEat(target);
   if (!gate.allowed) {
+    log('EAT blocked', label, 'reason=' + gate.reason);
     return { ok: false, blocked: true, reason: gate.reason, dryRun: gate.dryRun };
   }
   if (gate.dryRun) {
     // Safe Mode: pretend. The dog still "wins" on screen; nothing real dies.
+    log('EAT dry-run (safe mode)', label);
     return { ok: true, dryRun: true, reason: 'safe-mode' };
   }
   try {
+    log('EAT real →', label, JSON.stringify(target));
     await executor.eat(target);
+    log('EAT ok', label);
     return { ok: true, dryRun: false };
   } catch (err) {
     // A failed kill must never crash the game — the dog just spits it out.
-    return { ok: false, error: String(err && err.message || err), dryRun: false };
+    const msg = String((err && err.message) || err);
+    log('EAT FAILED', label, 'error=' + msg, 'stderr=' + ((err && err.stderr) || ''));
+    return { ok: false, error: msg, stderr: (err && err.stderr) || '', dryRun: false };
   }
 });
 
 // Report / change the safety mode.
+// Switch the browser to a tab so the user sees which one is being eaten.
+ipcMain.handle('pack:focusTab', async (_evt, target) => {
+  try { await executor.focusTab(target); return { ok: true }; }
+  catch (err) { return { ok: false, error: String((err && err.message) || err) }; }
+});
+
 ipcMain.handle('pack:getMode', () => safety.getState());
-ipcMain.handle('pack:setMode', (_evt, mode) => safety.setMode(mode));
+ipcMain.handle('pack:setMode', (_evt, mode) => { log('mode →', mode); return safety.setMode(mode); });
 
 // Are the macOS Automation permissions granted? (best-effort probe)
 ipcMain.handle('pack:checkPermissions', async () => {

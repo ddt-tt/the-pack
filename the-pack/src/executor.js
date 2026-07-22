@@ -17,8 +17,31 @@ function runOsa(script, timeout = 4000) {
 }
 
 async function eatTab(target) {
-  const { browser, win, tab } = target;
-  // Indices are 1-based and match the AppleScript window/tab vocabulary.
+  const { browser, win, tab, tabId } = target;
+  // Chrome tab ids are decimal integers, but they DON'T compare equal to a raw
+  // numeric literal in AppleScript — you must compare `(id ...) as text`.
+  if (tabId && /^\d+$/.test(String(tabId))) {
+    // Close by STABLE id — robust against tabs shifting as others close.
+    const script = `
+      if application "${browser}" is running then
+        tell application "${browser}"
+          repeat with wi from 1 to (count windows)
+            set w to window wi
+            repeat with ti from 1 to (count tabs of w)
+              if ((id of tab ti of w) as text) is "${tabId}" then
+                close tab ti of w
+                return "ok"
+              end if
+            end repeat
+          end repeat
+        end tell
+      end if
+      return "gone"`;
+    // "gone" = the tab already closed; that's mission-accomplished, not an error.
+    await runOsa(script);
+    return;
+  }
+  // Fallback (e.g. Safari): positional index. Fragile, but best available.
   const script = `
     if application "${browser}" is running then
       tell application "${browser}" to close tab ${tab} of window ${win}
@@ -52,4 +75,28 @@ async function eat(target) {
   throw new Error(`unknown target kind: ${target.kind}`);
 }
 
-module.exports = { eat, eatTab, eatApp };
+// Bring a tab to the front (switch to it + raise its window + focus the browser)
+// so the user can see which tab is about to be eaten.
+async function focusTab(target) {
+  const { browser, tabId } = target;
+  if (!tabId || !/^\d+$/.test(String(tabId))) return;
+  const script = `
+    if application "${browser}" is running then
+      tell application "${browser}"
+        repeat with wi from 1 to (count windows)
+          set w to window wi
+          repeat with ti from 1 to (count tabs of w)
+            if ((id of tab ti of w) as text) is "${tabId}" then
+              set active tab index of w to ti
+              set index of w to 1
+              activate
+              return "ok"
+            end if
+          end repeat
+        end repeat
+      end tell
+    end if`;
+  await runOsa(script);
+}
+
+module.exports = { eat, eatTab, eatApp, focusTab };

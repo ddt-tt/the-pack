@@ -32,11 +32,12 @@ let dogs = [];
 let targets = [];
 let running = false, paused = false;
 let mode = 'safe';
-let tabsOnly = false;      // when true, the pack ignores executables
+let tabsOnly = true;       // default: only eat browser tabs (ignore executables)
 let eaten = 0;
 let bones = [];
 let scanTimer = null;
 const respawnBlock = new Map(); // targetId -> time until it may reappear
+const seenTabIds = new Set();   // every tab id we've ever scanned (for "new" detection)
 let warnedPerm = false;
 let reactSpots = [];       // spread-out corner spots so reacting dogs don't overlap
 
@@ -146,7 +147,7 @@ function removeTarget(t, closedExternally) {
 /* fold the eaten-tab payload down to what the main process needs */
 function eatPayload(t) {
   return t.kind === 'tab'
-    ? { kind: 'tab', browser: t.browser, win: t.win, tab: t.tab, title: t.title }
+    ? { kind: 'tab', browser: t.browser, win: t.win, tab: t.tab, tabId: t.tabId, title: t.title }
     : { kind: 'app', appName: t.appName, pid: t.pid, title: t.title };
 }
 
@@ -169,6 +170,12 @@ function reconcile(scanned) {
   const fresh = scanned.filter((s) => !(respawnBlock.get(s.id) > t));
   const tabs = fresh.filter((s) => s.kind === 'tab');
   const apps = tabsOnly ? [] : fresh.filter((s) => s.kind === 'app');
+  // Real-time insertion: prefer already-shown tabs (no flicker), then brand-new
+  // tabs (just opened), then the rest — so a newly opened tab jumps into view.
+  const shown = new Set(targets.filter((x) => !x.dead).map((x) => x.id));
+  const rank = (s) => (shown.has(s.id) ? 0 : (seenTabIds.has(s.id) ? 2 : 1));
+  tabs.sort((a, b) => rank(a) - rank(b));
+  for (const s of tabs) seenTabIds.add(s.id);
   const pick = [];
   let ti = 0, ai = 0;
   while (pick.length < maxSlots && (ti < tabs.length || ai < apps.length)) {
@@ -273,29 +280,36 @@ function resolveFight(winner, loser, target) {
   // Loser slinks off to its own free corner spot and reacts there (startReaction).
   loser.lock = null; loser.priority = false; loser.opponent = winner;
   loser.clearProps(); loser.hideBadge();
-  loser.spot = claimSpot(loser);
+  loser.spot = claimSpot(loser, SAD.has(loser.key));
   loser.state = 'toCorner';
 }
 
 const REACT_MS = 10000;
+const SAD = new Set(['pita', 'oreo', 'fanta']); // criers slump in a bottom corner
 // Spread-out spots around the edges so reacting dogs never pile on each other.
 function buildReactSpots() {
   const y2 = innerHeight - 120, y1 = TOP + 90;
   const leftX = START_X + 70, rightX = innerWidth - 110, span = Math.max(1, rightX - leftX);
   reactSpots = [
-    { x: leftX, y: y2 }, { x: leftX + span / 3, y: y2 },
-    { x: leftX + 2 * span / 3, y: y2 }, { x: rightX, y: y2 },
-    { x: leftX, y: y1 }, { x: rightX, y: y1 }
+    { x: leftX, y: y2, bottom: true }, { x: leftX + span / 3, y: y2, bottom: true },
+    { x: leftX + 2 * span / 3, y: y2, bottom: true }, { x: rightX, y: y2, bottom: true },
+    { x: leftX, y: y1, bottom: false }, { x: rightX, y: y1, bottom: false }
   ].map((p) => ({ ...p, by: null }));
 }
-function claimSpot(dog) {
+function claimSpot(dog, bottomOnly) {
   const c = dog.center();
-  let best = null, bd = Infinity;
-  for (const s of reactSpots) {
-    if (s.by && s.by !== dog.key) continue;
-    const d = Math.hypot(s.x - c.x, s.y - c.y);
-    if (d < bd) { bd = d; best = s; }
-  }
+  const pick = (pool) => {
+    let best = null, bd = Infinity;
+    for (const s of pool) {
+      if (s.by && s.by !== dog.key) continue;
+      const d = Math.hypot(s.x - c.x, s.y - c.y);
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  };
+  let best = null;
+  if (bottomOnly) best = pick(reactSpots.filter((s) => s.bottom));
+  if (!best) best = pick(reactSpots);
   if (!best) best = reactSpots[0];
   best.by = dog.key; return best;
 }
@@ -554,9 +568,13 @@ function refreshRoster() {
 }
 
 /* ───────── ambient dolphin ───────── */
-// A rare sky-blue dolphin drifts across, sometimes pausing to look at a dog.
+// A sky-blue dolphin drifts across, sometimes pausing to look at a dog or doing
+// a circus backflip. Rare normally; more frequent in Safe Mode.
 let dolphin = null, nextDolphinAt = 0;
-const DW = 150;
+const DW = 300; // 2× bigger
+function dolphinDelay() {
+  return mode === 'safe' ? rnd(7000, 15000) : rnd(30000, 55000);
+}
 function spawnDolphin() {
   const dir = Math.random() < 0.5 ? 1 : -1;
   const el = document.createElement('div');
@@ -564,11 +582,12 @@ function spawnDolphin() {
   el.innerHTML = `<div class="flip">${window.Sprites.buildDolphinSVG()}</div>`;
   arena.appendChild(el);
   dolphin = {
-    el, dir, y: rnd(TOP + 10, TOP + 120), speed: rnd(85, 125),
+    el, dir, y: rnd(TOP + 10, TOP + 150), speed: rnd(85, 125),
     x: dir === 1 ? -DW - 20 : innerWidth + 20,
-    pauseX: rnd(innerWidth * 0.35, innerWidth * 0.62),
-    hasPaused: false, pausedUntil: 0,
-    flip: el.querySelector('.flip')
+    pauseX: rnd(innerWidth * 0.3, innerWidth * 0.6),
+    hasPaused: false, pausedUntil: 0, trickUntil: 0,
+    flip: el.querySelector('.flip'),
+    svg: el.querySelector('.dolphin-svg')
   };
   faceDolphin(dir);
   placeDolphin();
@@ -590,12 +609,33 @@ function updateDolphin(T, dt) {
   placeDolphin();
   if (!d.hasPaused && ((d.dir === 1 && d.x >= d.pauseX) || (d.dir === -1 && d.x <= d.pauseX))) {
     d.hasPaused = true;
-    if (Math.random() < 0.7) d.pausedUntil = T + rnd(1400, 2200);
+    const roll = Math.random();
+    if (roll < 0.45) {           // circus backflip!
+      d.svg.classList.add('trick');
+      setTimeout(() => { if (d.svg) d.svg.classList.remove('trick'); }, 1200);
+    } else if (roll < 0.8) {     // pause and look at a dog
+      d.pausedUntil = T + rnd(1400, 2200);
+    }
   }
   if (d.x < -DW - 40 || d.x > innerWidth + 40) {
     d.el.remove(); dolphin = null;
-    nextDolphinAt = T + rnd(14000, 28000);
+    nextDolphinAt = T + dolphinDelay();
   }
+}
+
+/* ───────── show the tab being eaten ───────── */
+// Every couple of seconds, bring one currently-being-eaten tab to the front in
+// the browser so the user sees which one is about to disappear. Chaos mode only
+// (that's when tabs actually close).
+let nextFocus = 0;
+function maybeFocusEatenTab(T) {
+  if (mode !== 'chaos' || T < nextFocus) return;
+  const chewers = dogs.filter((d) => d.active && d.state === 'chew' &&
+    d.lock && d.lock.kind === 'tab' && !d.lock.dead && d.lock.tabId);
+  if (!chewers.length) return;
+  const t = chewers[Math.floor(Math.random() * chewers.length)].lock;
+  window.pack.focusTab({ browser: t.browser, tabId: t.tabId });
+  nextFocus = T + 2500;
 }
 
 /* ───────── main loop ───────── */
@@ -607,6 +647,7 @@ function loop(ts) {
   if (!running) return;
   for (const d of dogs) stepDog(d, T, dt);
   updateDolphin(T, dt);
+  maybeFocusEatenTab(T);
   refreshRoster(); refreshHud();
 }
 
@@ -621,9 +662,9 @@ function startGame() {
   running = true; paused = false;
   refreshMode(); refreshHud();
   scan();
-  scanTimer = setInterval(scan, 2500);
+  scanTimer = setInterval(scan, 1500); // snappy real-time tracking of new tabs
   last = performance.now();
-  nextDolphinAt = performance.now() + rnd(6000, 12000);
+  nextDolphinAt = performance.now() + dolphinDelay();
 }
 
 function askChaos() {
@@ -659,6 +700,8 @@ async function refreshPermissions() {
 window.addEventListener('DOMContentLoaded', async () => {
   const m = await window.pack.getMode().catch(() => ({ mode: 'safe' }));
   mode = m.mode || 'safe'; refreshMode();
+  hud.tabsOnly.classList.toggle('on', tabsOnly);
+  hud.tabsOnly.textContent = tabsOnly ? '🌐 Tabs only' : '🌐🖥️ Tabs + apps';
   refreshPermissions();
 
   document.getElementById('btnStart').addEventListener('click', startGame);

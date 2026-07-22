@@ -37,8 +37,29 @@ starts eating. Dogs roam and hunt on their own.
 - **Click a dog's roster card** to bench it (take it off the field) or field it again.
 - **Click a tab/app** to sic the nearest free dog on it.
 - **🦴 Treat** (or Space) throws a bone that distracts the nearest dog.
-- **🌐 Tabs only** makes the pack ignore executables and eat only browser tabs.
+- **🌐 Tabs only** (the default) makes the pack ignore executables and eat only tabs.
 - **Call off** pauses the pack; the **mode pill** flips Safe ↔ Chaos.
+
+New tabs you open are picked up within ~1.5s and jump to the front of the queue.
+In **Chaos Mode**, whichever tab is currently being eaten is brought to the front in
+the browser so you can watch it vanish. A sky-blue **dolphin** (2× size) drifts across —
+rare normally, more frequent in Safe Mode — and sometimes does a circus backflip.
+
+## Troubleshooting / logs
+
+The main process writes a log to **`the-pack/pack.log`**. Tail it while playing:
+
+```bash
+tail -f the-pack/pack.log
+```
+
+Every real eat is logged — `EAT real → …`, `EAT ok`, or `EAT FAILED … stderr=…`.
+
+**If tabs don't close in Chaos Mode:** the fix is already in — tabs are closed by their
+**stable Chrome tab id**, not their position. (Closing by position hits AppleScript error
+`-1719 "Invalid index"` because indices shift as tabs close. Also note Chrome tab ids must
+be compared *as text* in AppleScript, not as a numeric literal.) If you still see failures,
+check `pack.log` for the `stderr=` line and confirm **Automation** permission is granted.
 
 ## Safe Mode vs. Chaos Mode
 

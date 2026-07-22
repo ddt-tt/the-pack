@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('pack', {
   scan: () => ipcRenderer.invoke('pack:scan'),
   eat: (target) => ipcRenderer.invoke('pack:eat', target),
+  focusTab: (target) => ipcRenderer.invoke('pack:focusTab', target),
   getMode: () => ipcRenderer.invoke('pack:getMode'),
   setMode: (mode) => ipcRenderer.invoke('pack:setMode', mode),
   checkPermissions: () => ipcRenderer.invoke('pack:checkPermissions')
