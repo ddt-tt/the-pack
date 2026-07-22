@@ -61,20 +61,42 @@ const Sfx = {
   sad() { [392, 349, 294, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'sine', 0.05), i * 180)); },
   // No one's louder wail — a bigger, more nasal descending cry.
   wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
-  // Pita's piano: Beethoven's 5th ("Destiny") — da-da-da-DUM, da-da-da-DUM.
-  // G G G E♭ … F F F D, with a lower octave layered in for drama. Loud (~0.1).
+  // A single piano-ish note with a quick attack + natural decay (avoids the
+  // click you get from starting an oscillator at full volume).
+  pianoNote(freq, at, dur, gain = 0.13) {
+    if (!this.on || !this.ctx) return;
+    setTimeout(() => {
+      try {
+        const t = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(gain, t + 0.008);       // fast attack
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);        // decay/ring-out
+        o.connect(g).connect(this.ctx.destination);
+        o.start(t); o.stop(t + dur + 0.03);
+      } catch (_) {}
+    }, at * 1000);
+  },
+  // Pita's piano: Beethoven's 5th ("Destiny"). Three crisp, detached pickups
+  // into a held note — twice, with a fermata pause between the phrases.
+  // Loud (gain ~0.13, on par with No one's wail).
   destiny() {
     const G = 392, Eb = 311.13, F = 349.23, D = 293.66;
-    const seq = [
-      [G, 0.00, 0.12], [G, 0.15, 0.12], [G, 0.30, 0.12], [Eb, 0.45, 0.60],
-      [F, 1.15, 0.12], [F, 1.30, 0.12], [F, 1.45, 0.12], [D, 1.60, 0.75]
-    ];
-    for (const [f, at, dur] of seq) {
-      setTimeout(() => {
-        this.blip(f, dur, 'triangle', 0.10);   // melody
-        this.blip(f / 2, dur, 'sine', 0.05);   // octave below, for weight
-      }, at * 1000);
-    }
+    const s = 0.16;        // spacing of the quick pickup notes
+    const shortDur = 0.11; // staccato pickups
+    const hold = 0.85;     // the held "DUM"
+    // phrase 1 — G G G  E♭———
+    this.pianoNote(G, 0.00, shortDur);
+    this.pianoNote(G, s, shortDur);
+    this.pianoNote(G, 2 * s, shortDur);
+    this.pianoNote(Eb, 3 * s, hold);
+    // fermata pause, then phrase 2 — F F F  D———
+    const p2 = 3 * s + hold + 0.38;
+    this.pianoNote(F, p2, shortDur);
+    this.pianoNote(F, p2 + s, shortDur);
+    this.pianoNote(F, p2 + 2 * s, shortDur);
+    this.pianoNote(D, p2 + 3 * s, hold + 0.15);
   },
   hit() { this.blip(90 + Math.random() * 60, 0.09, 'square', 0.05); },
   power() { [220, 330, 440, 660].forEach((f, i) => setTimeout(() => this.blip(f, 0.25, 'sawtooth', 0.04), i * 90)); },
@@ -349,7 +371,7 @@ function startReaction(dog) {
     case 'pita':
       dog.reaction = { particle: '💧', notes: true, piano: true, then: null };
       dog.showBadge('🎹'); dog.addProp('piano', '🎹'); dog.say('🎼 …destiny…', 2600);
-      Sfx.destiny(); dog._nextPiano = now() + 2400;
+      Sfx.destiny(); dog._nextPiano = now() + 3600;
       break;
     case 'oreo':
       dog.reaction = { particle: '💧', then: null };
@@ -462,7 +484,7 @@ function stepDog(dog, T, dt) {
         dog._nextParticle = T + (r.loud ? 230 : 400);
       }
       if (r.loud && T > (dog._nextWail || 0)) { Sfx.wail(); dog._nextWail = T + 1500; }
-      if (r.piano && T > (dog._nextPiano || 0)) { Sfx.destiny(); dog._nextPiano = T + 2400; }
+      if (r.piano && T > (dog._nextPiano || 0)) { Sfx.destiny(); dog._nextPiano = T + 3600; }
       if (T > dog.until) {
         dog.clearProps(); dog.hideBadge(); dog.el.classList.remove('training'); releaseSpot(dog);
         if (r.then === 'revenge' && dog.opponent && dog.opponent.active) {
