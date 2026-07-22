@@ -59,8 +59,8 @@ const Sfx = {
     } catch (_) {}
   },
   sad() { [392, 349, 294, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'sine', 0.05), i * 180)); },
-  // No one's louder wail — a bigger, more nasal descending cry.
-  wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
+  // No one's wail — a nasal descending cry (toned down a touch).
+  wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.06), i * 150)); },
   // A single piano-ish note with a quick attack + natural decay (avoids the
   // click you get from starting an oscillator at full volume).
   pianoNote(freq, at, dur, gain = 0.28) {

@@ -7,9 +7,11 @@
   "license": "MIT",
   "scripts": {
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
-    "fix-electron": "bash scripts/fix-electron.sh"
+    "fix-electron": "bash scripts/fix-electron.sh",
+    "build": "bash scripts/build-app.sh"
   },
   "devDependencies": {
+    "@electron/packager": "^18.4.4",
     "electron": "^31.0.0"
   }
 }
