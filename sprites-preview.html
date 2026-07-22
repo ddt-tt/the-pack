@@ -1,4 +1,4 @@
-<title>The Pack — Sprite Proof of Concept</title>
+<title>who ate the tab? — Sprite Sheet</title>
 <style>
   :root{
     --paper:#eef1e8; --card:#fbfaf5; --ink:#24291d; --muted:#6f7663;
@@ -53,6 +53,7 @@
   .name{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.01em}
   .breed{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);text-align:right}
+  .pron{font-family:var(--mono);font-size:10.5px;color:var(--muted);font-style:italic;margin-top:3px}
   .move{margin:10px 0 0;font-size:13.5px;color:var(--ink)}
   .move .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
     color:var(--accent-ink);display:block;margin-bottom:3px}
@@ -81,12 +82,13 @@
 
 <div class="wrap">
   <header>
-    <span class="eyebrow">The Pack · sprite study</span>
+    <span class="eyebrow">who ate the tab? · sprite study</span>
     <h1>Five dogs, five breeds, one hungry pack</h1>
     <p class="lede">Hand-authored <b>SVG</b> sprites — not raster images. Each dog is built from
       separate parts (legs, ears, tail, eyes, mouth), so every one can be animated per state:
       walk, chew, fight, and each dog's signature loser-move. They're breathing and wagging
-      right now to prove it. This is a look-and-feel pass — say what to adjust before I animate them.</p>
+      right now to prove it. Cast update: <b>Fanta is now “No one”</b>, pronouns added, and a
+      guest <b>dolphin</b> has joined the tank.</p>
   </header>
 
   <div class="grid">
@@ -138,7 +140,8 @@
       </div>
       <div class="meta">
         <div class="name-row"><span class="name">Pita</span><span class="breed">Yorkshire<br>Terrier</span></div>
-        <p class="move"><span class="lbl">When she loses</span>Cries and plays a sad piano. 🎹</p>
+        <div class="pron">she/her</div>
+        <p class="move"><span class="lbl">When she loses</span>Cries and plays a sad piano — loudly. 🎹</p>
       </div>
     </div>
 
@@ -183,8 +186,9 @@
         </svg>
       </div>
       <div class="meta">
-        <div class="name-row"><span class="name">Fanta</span><span class="breed">Pembroke<br>Corgi</span></div>
-        <p class="move"><span class="lbl">When he loses</span>Charges back in crying — re-fights instantly.</p>
+        <div class="name-row"><span class="name">No one</span><span class="breed">Pembroke<br>Corgi</span></div>
+        <div class="pron">he/him · formerly “Fanta”</div>
+        <p class="move"><span class="lbl">When he loses</span>Cries loudly, then charges back to re-fight. 😭</p>
       </div>
     </div>
 
@@ -231,7 +235,8 @@
       </div>
       <div class="meta">
         <div class="name-row"><span class="name">Lupita</span><span class="breed">Border<br>Collie</span></div>
-        <p class="move"><span class="lbl">When she loses</span>Hits the gym, trains, comes back for revenge. 💪</p>
+        <div class="pron">she/her</div>
+        <p class="move"><span class="lbl">When she loses</span>Trains (heavy breathing!), then comes back for revenge. 💪</p>
       </div>
     </div>
 
@@ -283,6 +288,7 @@
       </div>
       <div class="meta">
         <div class="name-row"><span class="name">Oreo</span><span class="breed">Dalmatian</span></div>
+        <div class="pron">she/her</div>
         <p class="move"><span class="lbl">When she loses</span>Sits and eats an Oreo while crying. 🍪</p>
       </div>
     </div>
@@ -330,7 +336,33 @@
       </div>
       <div class="meta">
         <div class="name-row"><span class="name">Anything</span><span class="breed">Cocker<br>Spaniel</span></div>
-        <p class="move"><span class="lbl">When it loses</span>Fights hard — but gives up easily.</p>
+        <div class="pron">they/them</div>
+        <p class="move"><span class="lbl">When they lose</span>Fights hard — but gives up easily. 🤷</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════ Dolphin — ambient guest ═══════════════ -->
+    <div class="card">
+      <div class="stage" style="background:linear-gradient(180deg,#7ec8e3,#3f8fb0)">
+        <svg viewBox="0 0 200 120" role="img" aria-label="A sky-blue dolphin" style="position:absolute;inset:0;width:100%;height:100%">
+          <g>
+            <path d="M16 62 Q2 46 8 42 Q22 52 30 60 Z" fill="#3fa3cf"/>
+            <path d="M16 62 Q2 82 8 86 Q22 74 30 66 Z" fill="#3fa3cf"/>
+            <path d="M24 62 Q78 26 148 42 Q176 49 192 68 Q150 66 118 68 Q78 74 42 76 Q28 72 24 62 Z" fill="#4fb3d9"/>
+            <path d="M42 76 Q78 74 118 68 Q150 66 192 68 Q170 84 120 86 Q80 86 50 82 Z" fill="#bfe6f5"/>
+            <path d="M186 66 Q200 63 200 70 Q195 74 184 72 Z" fill="#4fb3d9"/>
+            <path d="M96 44 Q104 20 122 42 Z" fill="#3fa3cf"/>
+            <path d="M98 74 Q106 96 124 82 Q114 74 98 74 Z" fill="#2f93bf"/>
+            <circle cx="172" cy="60" r="3.2" fill="#0e2a38"/>
+            <circle cx="173" cy="59" r="1" fill="#fff"/>
+            <path d="M180 68 q6 3 12 0" stroke="#2a6d88" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <div class="name-row"><span class="name">Dolphin</span><span class="breed">Ambient<br>guest</span></div>
+        <div class="pron">rare · rarer still, does a backflip</div>
+        <p class="move"><span class="lbl">What it does</span>Swims across doing nothing. Sometimes pauses to look at a dog, or performs a circus jump. 🐬</p>
       </div>
     </div>
 

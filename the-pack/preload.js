@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // The only surface the renderer (game world) gets to the real OS.
 contextBridge.exposeInMainWorld('pack', {
-  scan: () => ipcRenderer.invoke('pack:scan'),
+  scan: (opts) => ipcRenderer.invoke('pack:scan', opts),
   eat: (target) => ipcRenderer.invoke('pack:eat', target),
   focusTab: (target) => ipcRenderer.invoke('pack:focusTab', target),
   getMode: () => ipcRenderer.invoke('pack:getMode'),

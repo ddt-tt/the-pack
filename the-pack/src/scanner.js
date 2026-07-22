@@ -7,7 +7,7 @@ const { execFile } = require('child_process');
 
 const BROWSERS = ['Google Chrome', 'Microsoft Edge', 'Brave Browser', 'Safari'];
 
-function runOsa(script, timeout = 4000) {
+function runOsa(script, timeout = 6000) {
   return new Promise((resolve) => {
     execFile('osascript', ['-e', script], { timeout }, (err, stdout, stderr) => {
       resolve({
@@ -26,14 +26,19 @@ function parseLines(stdout) {
 /* ───────────────────────── running apps ───────────────────────── */
 
 async function listApps() {
+  // Bulk-fetch names + pids (one Apple event each) rather than per-process,
+  // which is far faster than iterating with a `whose` filter per item.
   const script = `
     tell application "System Events"
-      set out to ""
-      repeat with p in (every process whose background only is false)
-        set out to out & (unix id of p) & "\\t" & (name of p) & linefeed
-      end repeat
-      return out
-    end tell`;
+      set ps to (every process whose background only is false)
+      set ns to name of ps
+      set us to unix id of ps
+    end tell
+    set out to ""
+    repeat with i from 1 to (count ns)
+      set out to out & (item i of us) & "\\t" & (item i of ns) & linefeed
+    end repeat
+    return out`;
   const { stdout } = await runOsa(script);
   const apps = [];
   for (const line of parseLines(stdout)) {
@@ -60,25 +65,33 @@ async function listTabsFor(browser) {
   // Capture each tab's STABLE id where the browser exposes one (Chromium does;
   // Safari does not). Positional indices shift as tabs close, so the id is what
   // lets us reliably close the right tab later.
+  // Fetch titles and ids in BULK (one Apple event per window each) instead of
+  // per-tab — orders of magnitude faster when many tabs are open.
   const script = `
     if application "${browser}" is running then
       tell application "${browser}"
         set out to ""
-        set wi to 0
-        repeat with w in windows
-          set wi to wi + 1
-          set ti to 0
-          repeat with t in tabs of w
-            set ti to ti + 1
-            set theTitle to ""
-            try
-              set theTitle to (title of t) as text
-            end try
+        repeat with wi from 1 to (count windows)
+          set w to window wi
+          set theTitles to {}
+          try
+            set theTitles to title of tabs of w
+          end try
+          set theIds to {}
+          try
+            set theIds to id of tabs of w
+          end try
+          set n to count theTitles
+          repeat with ti from 1 to n
             set tid to ""
             try
-              set tid to (id of t) as text
+              set tid to (item ti of theIds) as text
             end try
-            set out to out & wi & "\\t" & ti & "\\t" & tid & "\\t" & theTitle & linefeed
+            set tt to ""
+            try
+              set tt to (item ti of theTitles) as text
+            end try
+            set out to out & wi & tab & ti & tab & tid & tab & tt & linefeed
           end repeat
         end repeat
         return out
@@ -110,16 +123,68 @@ async function listTabsFor(browser) {
   return tabs;
 }
 
+// Enumerate tabs for ALL browsers in a SINGLE osascript process. Spawning
+// osascript costs ~2s each on this machine (permission/startup overhead), so
+// doing one call instead of one-per-browser is the difference between a snappy
+// scan and a timeout when many tabs are open.
 async function listTabs() {
-  const results = await Promise.all(BROWSERS.map((b) => listTabsFor(b).catch(() => [])));
-  return results.flat();
+  const perBrowser = BROWSERS.map((b) => `
+    if application "${b}" is running then
+      tell application "${b}"
+        repeat with wi from 1 to (count windows)
+          set w to window wi
+          set theTitles to {}
+          try
+            set theTitles to title of tabs of w
+          end try
+          set theIds to {}
+          try
+            set theIds to id of tabs of w
+          end try
+          set n to count theTitles
+          repeat with ti from 1 to n
+            set tid to ""
+            try
+              set tid to (item ti of theIds) as text
+            end try
+            set tt to ""
+            try
+              set tt to (item ti of theTitles) as text
+            end try
+            set out to out & "${b}" & "\\t" & wi & "\\t" & ti & "\\t" & tid & "\\t" & tt & linefeed
+          end repeat
+        end repeat
+      end tell
+    end if`).join('\n');
+  const script = `set out to ""\n${perBrowser}\nreturn out`;
+  const { stdout } = await runOsa(script, 8000);
+  const tabs = [];
+  for (const line of parseLines(stdout)) {
+    const parts = line.split('\t');
+    if (parts.length < 4) continue;
+    const browser = parts[0];
+    const win = parseInt(parts[1], 10);
+    const tab = parseInt(parts[2], 10);
+    const tabId = (parts[3] || '').trim();
+    const title = (parts.slice(4).join(' ') || '(untitled)').trim();
+    if (Number.isNaN(win) || Number.isNaN(tab)) continue;
+    tabs.push({
+      id: tabId ? `tab:${browser}:#${tabId}` : `tab:${browser}:${win}:${tab}`,
+      kind: 'tab',
+      title: title || '(untitled)',
+      browser, win, tab,
+      tabId: tabId || null
+    });
+  }
+  return tabs;
 }
 
 /* ───────────────────────── public API ───────────────────────── */
 
-async function scan() {
+async function scan(opts = {}) {
+  const includeApps = opts.includeApps !== false; // skip the (slower) app scan in tabs-only mode
   const [apps, tabs] = await Promise.all([
-    listApps().catch(() => []),
+    includeApps ? listApps().catch(() => []) : Promise.resolve([]),
     listTabs().catch(() => [])
   ]);
   return [...tabs, ...apps];

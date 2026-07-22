@@ -52,9 +52,9 @@ app.on('window-all-closed', () => {
 /* ───────────────────────── IPC bridge ───────────────────────── */
 
 // Scan the real world: open browser tabs + running apps.
-ipcMain.handle('pack:scan', async () => {
+ipcMain.handle('pack:scan', async (_evt, opts) => {
   try {
-    const targets = await scanner.scan();
+    const targets = await scanner.scan(opts || {});
     return { ok: true, targets: safety.annotate(targets) };
   } catch (err) {
     return { ok: false, error: String(err && err.message || err), targets: [] };

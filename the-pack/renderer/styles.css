@@ -194,21 +194,21 @@ html,body{height:100%;margin:0;overflow:hidden;font-family:var(--ui);color:var(-
   font-family:var(--mono);font-weight:800;font-size:22px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5);
   font-variant-numeric:tabular-nums}
 
-/* ─────────────────────── ambient dolphin (2× size) ─────────────────────── */
-.dolphin{position:absolute;z-index:47;width:300px;height:180px;pointer-events:none;will-change:transform}
+/* ─────────────────────── ambient dolphin (extra large) ─────────────────────── */
+.dolphin{position:absolute;z-index:47;width:600px;height:360px;pointer-events:none;will-change:transform}
 .dolphin .flip{width:100%;height:100%}
 .dolphin-svg{width:100%;height:100%;display:block;transform-box:fill-box;transform-origin:center;
-  filter:drop-shadow(0 8px 9px rgba(30,80,110,.32));animation:swimbob 1.9s ease-in-out infinite}
-@keyframes swimbob{50%{transform:translateY(-8px) rotate(-2deg)}}
+  filter:drop-shadow(0 10px 12px rgba(30,80,110,.32));animation:swimbob 1.9s ease-in-out infinite}
+@keyframes swimbob{50%{transform:translateY(-10px) rotate(-2deg)}}
 .dolphin-svg .fin{animation:finwave 1.2s ease-in-out infinite;transform-box:fill-box}
 @keyframes finwave{50%{transform:rotate(-6deg)}}
 /* circus jump + backflip */
 .dolphin-svg.trick{animation:dolphintrick 1.2s ease-in-out}
 @keyframes dolphintrick{
   0%{transform:translateY(0) rotate(0deg)}
-  30%{transform:translateY(-150px) rotate(-140deg)}
-  55%{transform:translateY(-180px) rotate(-360deg)}
-  80%{transform:translateY(-120px) rotate(-580deg)}
+  30%{transform:translateY(-260px) rotate(-140deg)}
+  55%{transform:translateY(-320px) rotate(-360deg)}
+  80%{transform:translateY(-210px) rotate(-580deg)}
   100%{transform:translateY(0) rotate(-720deg)}
 }
 

@@ -4,7 +4,7 @@
 
 const { execFile } = require('child_process');
 
-function runOsa(script, timeout = 4000) {
+function runOsa(script, timeout = 8000) {
   return new Promise((resolve, reject) => {
     execFile('osascript', ['-e', script], { timeout }, (err, stdout, stderr) => {
       if (err) {
@@ -16,37 +16,51 @@ function runOsa(script, timeout = 4000) {
   });
 }
 
+// Serialize every browser-control AppleScript. Multiple dogs eating at once
+// would otherwise fire concurrent Apple events at Chrome, which throws
+// -609 "Connection is invalid" / -1719 as tabs vanish mid-scan.
+let chain = Promise.resolve();
+function serialize(task) {
+  const run = chain.then(task, task);
+  chain = run.then(() => {}, () => {});
+  return run;
+}
+
 async function eatTab(target) {
   const { browser, win, tab, tabId } = target;
   // Chrome tab ids are decimal integers, but they DON'T compare equal to a raw
   // numeric literal in AppleScript — you must compare `(id ...) as text`.
   if (tabId && /^\d+$/.test(String(tabId))) {
-    // Close by STABLE id — robust against tabs shifting as others close.
+    // Close by STABLE id. Every tab access is wrapped in `try` so a tab that
+    // disappears mid-scan (another dog got it) can't abort the whole script.
     const script = `
       if application "${browser}" is running then
         tell application "${browser}"
           repeat with wi from 1 to (count windows)
-            set w to window wi
-            repeat with ti from 1 to (count tabs of w)
-              if ((id of tab ti of w) as text) is "${tabId}" then
-                close tab ti of w
-                return "ok"
-              end if
-            end repeat
+            try
+              set w to window wi
+              repeat with ti from 1 to (count tabs of w)
+                try
+                  if ((id of tab ti of w) as text) is "${tabId}" then
+                    close tab ti of w
+                    return "ok"
+                  end if
+                end try
+              end repeat
+            end try
           end repeat
         end tell
       end if
       return "gone"`;
     // "gone" = the tab already closed; that's mission-accomplished, not an error.
-    await runOsa(script);
-    return;
+    return serialize(() => runOsa(script));
   }
   // Fallback (e.g. Safari): positional index. Fragile, but best available.
   const script = `
     if application "${browser}" is running then
       tell application "${browser}" to close tab ${tab} of window ${win}
     end if`;
-  await runOsa(script);
+  return serialize(() => runOsa(script));
 }
 
 async function eatApp(target) {
@@ -76,7 +90,7 @@ async function eat(target) {
 }
 
 // Bring a tab to the front (switch to it + raise its window + focus the browser)
-// so the user can see which tab is about to be eaten.
+// so the user can see which tab is about to be eaten. Guarded + serialized too.
 async function focusTab(target) {
   const { browser, tabId } = target;
   if (!tabId || !/^\d+$/.test(String(tabId))) return;
@@ -84,19 +98,24 @@ async function focusTab(target) {
     if application "${browser}" is running then
       tell application "${browser}"
         repeat with wi from 1 to (count windows)
-          set w to window wi
-          repeat with ti from 1 to (count tabs of w)
-            if ((id of tab ti of w) as text) is "${tabId}" then
-              set active tab index of w to ti
-              set index of w to 1
-              activate
-              return "ok"
-            end if
-          end repeat
+          try
+            set w to window wi
+            repeat with ti from 1 to (count tabs of w)
+              try
+                if ((id of tab ti of w) as text) is "${tabId}" then
+                  set active tab index of w to ti
+                  set index of w to 1
+                  activate
+                  return "ok"
+                end if
+              end try
+            end repeat
+          end try
         end repeat
       end tell
-    end if`;
-  await runOsa(script);
+    end if
+    return "gone"`;
+  return serialize(() => runOsa(script));
 }
 
 module.exports = { eat, eatTab, eatApp, focusTab };

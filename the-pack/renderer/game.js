@@ -61,6 +61,8 @@ const Sfx = {
   sad() { [392, 349, 294, 262].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'sine', 0.05), i * 180)); },
   // No one's louder wail — a bigger, more nasal descending cry.
   wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
+  // Pita's sad piano — as loud as the wail (gain 0.09), a descending phrase.
+  piano() { [523, 466, 392, 349].forEach((f, i) => setTimeout(() => this.blip(f, 0.4, 'triangle', 0.09), i * 140)); },
   hit() { this.blip(90 + Math.random() * 60, 0.09, 'square', 0.05); },
   power() { [220, 330, 440, 660].forEach((f, i) => setTimeout(() => this.blip(f, 0.25, 'sawtooth', 0.04), i * 90)); },
   gulp() { this.blip(180, 0.12, 'triangle', 0.06); setTimeout(() => this.blip(120, 0.14, 'triangle', 0.05), 90); },
@@ -152,15 +154,22 @@ function eatPayload(t) {
 }
 
 /* ───────── real-world scan + reconcile ───────── */
+let scanning = false;
 async function scan() {
-  if (!running) return;
-  let res;
-  try { res = await window.pack.scan(); } catch (e) { return; }
-  if (!res || !res.ok) {
-    if (!warnedPerm) { toast('Scan failed — check Automation permission.', 'block'); warnedPerm = true; }
-    return;
+  if (!running || scanning) return; // never let a slow scan pile up
+  scanning = true;
+  try {
+    const res = await window.pack.scan({ includeApps: !tabsOnly });
+    if (!res || !res.ok) {
+      if (!warnedPerm) { toast('Scan failed — check Automation permission.', 'block'); warnedPerm = true; }
+      return;
+    }
+    reconcile(res.targets || []);
+  } catch (e) {
+    // ignore a transient scan failure; the next tick will retry
+  } finally {
+    scanning = false;
   }
-  reconcile(res.targets || []);
 }
 
 function reconcile(scanned) {
@@ -324,8 +333,9 @@ function startReaction(dog) {
   dog.until = now() + REACT_MS;
   switch (dog.key) {
     case 'pita':
-      dog.reaction = { particle: '💧', notes: true, then: null };
-      dog.showBadge('🎹'); dog.addProp('piano', '🎹'); dog.say('😭', 2600); Sfx.sad();
+      dog.reaction = { particle: '💧', notes: true, piano: true, then: null };
+      dog.showBadge('🎹'); dog.addProp('piano', '🎹'); dog.say('😭', 2600);
+      Sfx.piano(); dog._nextPiano = now() + 1500;
       break;
     case 'oreo':
       dog.reaction = { particle: '💧', then: null };
@@ -434,10 +444,11 @@ function stepDog(dog, T, dt) {
           dog.tear();
           if (r.loud) dog.tear(); // extra tears for a louder cry
         }
-        if (r.notes) { dog.note(); Sfx.blip(rnd(300, 500), 0.3, 'sine', 0.03); }
+        if (r.notes) dog.note();
         dog._nextParticle = T + (r.loud ? 230 : 400);
       }
       if (r.loud && T > (dog._nextWail || 0)) { Sfx.wail(); dog._nextWail = T + 1500; }
+      if (r.piano && T > (dog._nextPiano || 0)) { Sfx.piano(); dog._nextPiano = T + 1500; }
       if (T > dog.until) {
         dog.clearProps(); dog.hideBadge(); dog.el.classList.remove('training'); releaseSpot(dog);
         if (r.then === 'revenge' && dog.opponent && dog.opponent.active) {
@@ -571,7 +582,7 @@ function refreshRoster() {
 // A sky-blue dolphin drifts across, sometimes pausing to look at a dog or doing
 // a circus backflip. Rare normally; more frequent in Safe Mode.
 let dolphin = null, nextDolphinAt = 0;
-const DW = 300; // 2× bigger
+const DW = 600; // extra-large circus dolphin
 function dolphinDelay() {
   return mode === 'safe' ? rnd(7000, 15000) : rnd(30000, 55000);
 }
