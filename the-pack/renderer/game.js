@@ -730,6 +730,14 @@ function startGame() {
   buildReactSpots();
   dogs = window.Sprites.BREEDS.map((def) => new window.Dog(def, arena));
   buildRoster();
+  // Only the first dog is fielded by default; the rest start benched.
+  // Click a roster card to field more.
+  for (let i = 1; i < dogs.length; i++) {
+    const d = dogs[i];
+    d.active = false;
+    d.card.classList.add('benched');
+    d.el.style.display = 'none';
+  }
   running = true; paused = false;
   refreshMode(); refreshHud();
   scan();
