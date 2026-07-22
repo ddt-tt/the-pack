@@ -63,7 +63,7 @@ const Sfx = {
   wail() { [520, 470, 400, 340].forEach((f, i) => setTimeout(() => this.blip(f, 0.45, 'sawtooth', 0.09), i * 150)); },
   // A single piano-ish note with a quick attack + natural decay (avoids the
   // click you get from starting an oscillator at full volume).
-  pianoNote(freq, at, dur, gain = 0.13) {
+  pianoNote(freq, at, dur, gain = 0.28) {
     if (!this.on || !this.ctx) return;
     setTimeout(() => {
       try {
