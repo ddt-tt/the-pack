@@ -54,7 +54,9 @@ app.on('window-all-closed', () => {
 // Scan the real world: open browser tabs + running apps.
 ipcMain.handle('pack:scan', async (_evt, opts) => {
   try {
+    const t0 = Date.now();
     const targets = await scanner.scan(opts || {});
+    if (process.env.PACK_SELFTEST) log(`scan: ${targets.length} targets in ${Date.now() - t0}ms opts=${JSON.stringify(opts)}`);
     return { ok: true, targets: safety.annotate(targets) };
   } catch (err) {
     return { ok: false, error: String(err && err.message || err), targets: [] };

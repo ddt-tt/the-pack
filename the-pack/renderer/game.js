@@ -283,6 +283,7 @@ function triggerFight(a, b, target) {
   window.Fight.runBrawl(a, b, target, fightCtx);
 }
 function resolveFight(winner, loser, target) {
+  winner.wins += 1;
   if (target && !target.dead) { target.claimedBy = winner.key; winner.lock = target; winner.state = 'hunt'; }
   else winner.state = 'roam';
   winner.say('mine 😋');
@@ -578,6 +579,30 @@ function refreshRoster() {
   for (const d of dogs) if (d.stateEl) d.stateEl.textContent = d.active ? (STATE_ICON[d.state] || '🐾') : '💤';
 }
 
+/* ───────── scoreboard: top 3 by eats + fight wins, crown for #1 ───────── */
+const MEDAL = ['🥇', '🥈', '🥉'];
+let nextScore = 0;
+function score(d) { return d.eaten + d.wins; }
+function refreshScoreboard(T) {
+  if (T < nextScore) return;
+  nextScore = T + 500;
+  const box = document.getElementById('scoreboard');
+  if (!box) return;
+  const ranked = [...dogs].sort((a, b) => score(b) - score(a) || b.eaten - a.eaten);
+  const leader = ranked[0];
+  const hasLeader = leader && score(leader) > 0;
+  for (const d of dogs) d.el.classList.toggle('leader', hasLeader && d === leader);
+  box.innerHTML =
+    `<div class="sb-title">🏆 Top dogs</div>` +
+    ranked.slice(0, 3).map((d, i) =>
+      `<div class="sb-row${hasLeader && d === leader ? ' lead' : ''}">` +
+      `<span class="sb-rank">${MEDAL[i]}</span>` +
+      `<span class="sb-name">${d.name}</span>` +
+      `<span class="sb-stat" title="eaten">🦴${d.eaten}</span>` +
+      `<span class="sb-stat" title="fight wins">🏆${d.wins}</span></div>`
+    ).join('');
+}
+
 /* ───────── ambient dolphin ───────── */
 // A sky-blue dolphin drifts across, sometimes pausing to look at a dog or doing
 // a circus backflip. Rare normally; more frequent in Safe Mode.
@@ -659,7 +684,7 @@ function loop(ts) {
   for (const d of dogs) stepDog(d, T, dt);
   updateDolphin(T, dt);
   maybeFocusEatenTab(T);
-  refreshRoster(); refreshHud();
+  refreshRoster(); refreshHud(); refreshScoreboard(T);
 }
 
 /* ───────── start / overlays / mode ───────── */

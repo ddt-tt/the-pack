@@ -19,6 +19,7 @@ class Dog {
     el.innerHTML =
       `<div class="aura"></div>` +
       `<div class="saiyan-hair"></div>` +
+      `<div class="crown">👑</div>` +
       `<div class="react-badge"></div>` +
       `<div class="flip">${window.Sprites.buildDogSVG(def.key)}</div>` +
       `<div class="props"></div>` +
@@ -33,6 +34,7 @@ class Dog {
     this.badgeEl = el.querySelector('.react-badge');
     this.eatEl = el.querySelector('.eatcount');
     this.eaten = 0;
+    this.wins = 0;
 
     // position (top-left)
     this.x = 40 + Math.random() * (innerWidth - 240);

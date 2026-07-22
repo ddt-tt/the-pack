@@ -20,8 +20,10 @@ Built as the merge of two references: the dog-eats-windows visual toy
 | **Anything** | Cocker Spaniel | they/them | fights hard, but gives up easily 🤷 |
 
 Every dog barks while chewing and tracks how many things it's eaten (shown below
-it). **Tabs are flimsier than apps** (shorter health bar). And once in a while a
-**sky-blue dolphin** drifts across, pausing to look at a dog before swimming on.
+it). A **scoreboard** (top-right) ranks the top 3 by eats + fight wins, and the
+current #1 wears a **👑 crown**. **Tabs are flimsier than apps** (shorter health
+bar). And once in a while a **sky-blue dolphin** drifts across, pausing to look at
+a dog — or pulling off a circus backflip.
 
 ## Run it
 
